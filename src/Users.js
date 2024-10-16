@@ -31,37 +31,37 @@ const Users = () => {
       {/* Sidebar */}
       <Sidebar />
       {/* Main Content */}
-      <div className="w-5/6 bg-[#f8fafe] p-10 -mb-24 h-screen">
-        <button className="bg-[#4E82E4] py-2 px-9 right-5 top-5 absolute text-white font-semibold rounded-lg mr-2 hover:bg-[#6a9aec] transition-all hover:px-12">Done
+      <div className="w-5/6 max-[320px]:w-screen bg-[#f8fafe] p-10 -mb-24 h-screen max-[320px]:p-0">
+        <button className="bg-[#4E82E4] py-2 px-9 right-5 top-5 absolute text-white font-semibold rounded-lg mr-2 hover:bg-[#6a9aec] transition-all hover:px-12 max-[320px]:hidden">Done
         </button>
         <div className="flex justify-center mb-8">
           <div className="flex flex-col items-center w-auto h-24">
             <div className="flex w-[150%] h-1/2 justify-between">
-              <div className="flex flex-col items-center z-20 bg-[#4E82E4] h-full rounded-full p-3">
+              <div className="flex flex-col items-center z-20 bg-[#4E82E4] h-full rounded-full p-3 max-[320px]:hidden">
                 <FaInfo className="text-white size-12" />
               </div>
-              <div className="top-[7%] left-[51%] z-10 absolute flex-grow bg-[#4E82E4] w-[150px] h-[5px]"></div>
-              <div className="flex flex-col items-center z-20 h-full bg-[#4E82E4] rounded-full p-3">
+              <div className="top-[7%] left-[51%] z-10 absolute flex-grow bg-[#4E82E4] w-[150px] h-[5px] max-[320px]:hidden"></div>
+              <div className="flex flex-col items-center z-20 h-full bg-[#4E82E4] rounded-full p-3 max-[320px]:hidden">
                 <FaBoxesStacked className="text-white size-12" />
               </div>
-              <div className="top-[7%] left-[59.5%] z-10 absolute flex-grow bg-[#4E82E4] w-[150px] h-[5px]"></div>
-              <div className="flex flex-col items-center h-full z-20 bg-[#4E82E4] rounded-full p-3">
+              <div className="top-[7%] left-[59.5%] z-10 absolute flex-grow bg-[#4E82E4] w-[150px] h-[5px] max-[320px]:hidden"></div>
+              <div className="flex flex-col items-center h-full z-20 bg-[#4E82E4] rounded-full p-3 max-[320px]:hidden">
                 <FaUsers className="text-white size-12" />
               </div>
             </div>
             <div className="flex w-[160%] justify-between h-1/6 mb-10 mr-7">
-              <span className="text-md font-teko text-[#DF9677] ml-9">Store info</span>
-              <span className="text-md font-teko text-[#DF9677] ml-3">Add storage</span>
-              <span className="text-md font-teko text-[#DF9677]">Add employees</span>
+              <span className="text-md font-teko text-[#DF9677] ml-9 max-[320px]:hidden">Store info</span>
+              <span className="text-md font-teko text-[#DF9677] ml-3 max-[320px]:hidden">Add storage</span>
+              <span className="text-md font-teko text-[#DF9677] max-[320px]:hidden">Add employees</span>
             </div>
           </div>
         </div>
         {/* Top Container - Search, Sort, Filter */}
         {/* Middle Container - Plates */}
-        <div className="w-full min-h-[650px] grid grid-cols-4 gap-4 p-5">
+        <div className="w-full min-h-[650px] grid grid-cols-4 gap-4 p-5 max-[320px]:grid-cols-2 max-[320px]:min-h-[250px] max-[320px]:p-2 max-[320px]:gap-2">
           {/* Add Item Plate */}
           <div
-            className="border border-gray-300 h-1/2 bg-white shadow-lg rounded-lg p-4 flex flex-col items-center justify-center shadow-[#4E82E4] hover:bg-blue-50 cursor-pointer"
+            className="border border-gray-300 h-full max-[320px]:h-full bg-white shadow-lg rounded-lg p-4 flex flex-col items-center justify-center shadow-[#4E82E4] hover:bg-blue-50 cursor-pointer"
             onClick={toggleOverlay}
           >
             <h1 className="w-20 h-20 text-7xl font-light mb-4 rounded-full flex justify-center items-center">+</h1>
@@ -69,9 +69,9 @@ const Users = () => {
           </div>
 
           {/* CD Plates */}
-          {[...Array(1)].map((_, index) => (
-            <div key={index} className="border border-gray-300 h-1/2 bg-white shadow-lg rounded-lg p-4 flex justify-center items-center flex-col">
-              <img src="/Janis.jpg" alt="Item" className="h-1/2 mx-auto mb-1" />
+          {[...Array(5)].map((_, index) => (
+            <div key={index} className="border border-gray-300 h-full bg-white shadow-lg rounded-lg p-4 flex justify-center items-center flex-col max-[320px]:flex-wrap max-[320px]:h-full max-[320px]:p-1">
+              <img src="/Janis.jpg" alt="Item" className="h-1/2 mx-auto mb-1 max-[320px]:h-1/3" />
               <p className="text-center text-lg font-bold">Jānis</p>
               <p className="text-center text-sm">Position: Cashier</p>
               <p className="text-center text-sm">Work Experience: 2 Yrs.</p>
@@ -98,7 +98,7 @@ const Users = () => {
       {/* Overlay */}
       {showOverlay && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="relative bg-white p-8 w-1/3 h-3/7 rounded-lg shadow-lg space-y-4">
+          <div className="relative bg-white p-8 w-1/3 h-3/7 rounded-lg shadow-lg space-y-4 max-[320px]:w-11/12">
             <FaXmark className="w-5 text-[#4E82E4] absolute top-4 right-4 cursor-pointer" onClick={toggleOverlay}/>
             <h2 className="text-xl text-[#4E82E4] font-bold text-center">Add new worker</h2>
 

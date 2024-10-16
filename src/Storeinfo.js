@@ -27,36 +27,36 @@ const StoreInfo = () => {
       <Sidebar />
 
       {/* Main Content */}
-      <div className="w-5/6 bg-[#f8fafe] border-l-2 border-[#4E82E4] p-10">
+      <div className="w-5/6 bg-[#f8fafe] p-10 max-[320px]:w-screen max-[320px]:p-2">
         <button
-          className="bg-[#4E82E4] py-2 px-9 right-5 top-5 absolute text-white font-semibold rounded-lg mr-2 hover:bg-[#6a9aec] transition-all hover:px-12">Next step
+          className="bg-[#4E82E4] py-2 px-9 right-5 top-5 absolute text-white font-semibold rounded-lg mr-2 hover:bg-[#6a9aec] transition-all hover:px-12 max-[320px]:hidden">Next step
         </button>
         {/* Progress Bar */}
         <div className="flex justify-center mb-24">
           <div className="flex flex-col items-center w-auto h-24">
             <div className="flex w-[150%] h-1/2 justify-between">
-              <div className="flex flex-col items-center z-20 bg-[#4E82E4] h-full rounded-full p-3">
+              <div className="flex flex-col items-center z-20 bg-[#4E82E4] h-full rounded-full p-3 max-[320px]:hidden">
                 <FaInfo className="text-white size-12" />
               </div>
-              <div className="top-[7%] left-[51%] z-10 absolute flex-grow bg-gray-300 w-[150px] h-[5px]"></div>
-              <div className="flex flex-col items-center z-20 h-full bg-gray-300 rounded-full p-3">
-                <FaBoxesStacked className="text-white size-12" />
+              <div className="top-[7%] left-[51%] z-10 absolute flex-grow bg-gray-300 w-[150px] h-[5px] max-[320px]:hidden"></div>
+              <div className="flex flex-col items-center z-20 h-full bg-gray-300 rounded-full p-3 max-[320px]:hidden">
+                <FaBoxesStacked className="text-white size-12 " />
               </div>
-              <div className="top-[7%] left-[59.5%] z-10 absolute flex-grow bg-gray-300 w-[150px] h-[5px]"></div>
-              <div className="flex flex-col items-center h-full z-20 bg-gray-300 rounded-full p-3">
+              <div className="top-[7%] left-[59.5%] z-10 absolute flex-grow bg-gray-300 w-[150px] h-[5px] max-[320px]:hidden"></div>
+              <div className="flex flex-col items-center h-full z-20 bg-gray-300 rounded-full p-3 max-[320px]:hidden">
                 <FaUsers className="text-white size-12" />
               </div>
             </div>
-            <div className="flex w-[160%] justify-between h-1/6 mb-10 mr-7">
-              <span className="text-md font-teko text-[#DF9677] ml-9">Store info</span>
-              <span className="text-md font-teko text-[#DF9677] ml-3">Add storage</span>
-              <span className="text-md font-teko text-[#DF9677]">Add employees</span>
+            <div className="flex w-[160%] justify-between h-1/6 mb-10 mr-7 max-[320px]:hidden">
+              <span className="text-md font-teko text-[#DF9677] ml-9 max-[320px]:hidden">Store info</span>
+              <span className="text-md font-teko text-[#DF9677] ml-3 max-[320px]:hidden">Add storage</span>
+              <span className="text-md font-teko text-[#DF9677] max-[320px]:hidden">Add employees</span>
             </div>
           </div>
         </div>
 
         {/* Form */}
-        <form className="space-y-6 max-w-md mx-auto mt-10 bg-white shadow-lg p-8 rounded-lg">
+        <form className="space-y-4 max-w-md mx-auto mt-10 max-[320px]:-mt-28 max-[320px]:p-3 max-[320px]:w-full bg-white shadow-lg p-8 rounded-lg">
           <h1 className="text-4xl font-teko text-center text-[#4E82E4] mb-8">Create New Store</h1>
 
           {['Store name', 'Address', 'Category'].map((placeholder, index) => (
