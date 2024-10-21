@@ -1,14 +1,49 @@
 import React, { useState } from 'react';
 import './App.css';
-import { Link } from 'react-router-dom';
-import { FaEnvelope, FaLanguage, FaLock } from 'react-icons/fa6';
+import { Link, useNavigate } from 'react-router-dom';
+import { FaEnvelope, FaLock, FaLanguage } from 'react-icons/fa6';
+import axios from 'axios';
 
-function App() {
+function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const navigate = useNavigate();
+  const [userData, setUserdata] = useState(null);
 
   const toggleDropdown = () => {
     setDropdownOpen(!dropdownOpen);
   };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('http://my-laravel-app.test/api/login', {
+        email,
+        password,
+      }, { withCredentials: true }); // Sends the credentials with the request
+      const userdata = response.data.user
+      console.log(userdata)
+      if (response){
+        setUserdata(userdata);
+        console.log(response.data.user.last_name);
+      }
+      if (response.data.token) {
+        // Store token (optional, depends on your auth flow)
+        localStorage.setItem('authToken', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+
+        // Redirect to a different page (e.g., dashboard)
+        navigate('/storeinfo', {});
+      }
+    } catch (error) {
+      // Handle errors
+      setErrorMessage('Invalid email or password');
+      console.error('Error during login:', error);
+    }
+  };
+
 
   return (
       <div className="flex h-screen bg-[#f8fafe] overflow-hidden max-[320px]:flex-col max-[320px]:w-[320px]">
@@ -29,8 +64,8 @@ function App() {
               className="w-full h-full bg-[#90b1ee] flex justify-center items-center absolute rotate-45 right-36 top-2 shift-left max-[320px]:w-[150%]"></div>
           <div
               className="w-full h-full bg-[#4E82E4] flex justify-center items-center absolute rotate-45 right-80 top-2 shift-diagonal max-[320px]:w-[150%]"></div>
-          {/* Main Stocker text with Teko font */}
         </div>
+
         {/* Right side with the login form */}
         <div
             className="w-1/2 flex justify-center items-center relative max-[320px]:w-screen max-[320px]:overflow-hidden max-[320px]:h-screen">
@@ -40,7 +75,7 @@ function App() {
               className="p-10 w-1/2 ml-20 bg-[#f8fafe] rounded-lg bg-opacity-10 max-[320px]:w-11/12 max-[320px]:ml-0 max-[320px]:bg-[#f8fafe] max-[320px]:p-5">
             {/* Login title with Teko font */}
             <h2 className="text-[#DF9677] text-5xl font-semibold mb-6 font-teko select-none">Login</h2>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
               {/* Email input with icon */}
               <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
                 <FaEnvelope className="h-5 w-5 mr-2 bg-white text-[#DF9677]"/>
@@ -49,6 +84,9 @@ function App() {
                     id="email"
                     className="w-full outline-none"
                     placeholder="Email address or Username"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                 />
               </div>
 
@@ -60,8 +98,13 @@ function App() {
                     id="password"
                     className="w-full outline-none"
                     placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                 />
               </div>
+
+              {errorMessage && <p className="text-red-500">{errorMessage}</p>}
 
               <div className="flex justify-between items-center">
                 <div>
@@ -98,11 +141,11 @@ function App() {
           <FaLanguage className="h-[50px] cursor-pointer text-5xl text-[#4E82E4]" onClick={toggleDropdown}></FaLanguage>
           {dropdownOpen && (
               <div className="absolute right-0 mt-2 bg-white shadow-md rounded-lg w-[140px]">
-                <div className="flex items-center cursor-pointer p-2 hover:bg-gray-200 w-">
+                <div className="flex items-center cursor-pointer p-2 hover:bg-gray-200">
                   <img src="/Flags/Uk.png" alt="English" className="h-5 w-5 mr-2"/>
                   <span>English</span>
                 </div>
-                <div className="flex items-center cursor-pointer p-2 hover:bg-gray-200 w-full">
+                <div className="flex items-center cursor-pointer p-2 hover:bg-gray-200">
                   <img src="/Flags/Latvia.png" alt="Latviešu" className="h-5 w-5 mr-2"/>
                   <span>Latviešu</span>
                 </div>
@@ -113,4 +156,4 @@ function App() {
   );
 }
 
-export default App;
+export default Login;

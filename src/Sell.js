@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import {
+  FaCalendar,
   FaDollarSign,
   FaPercent,
   FaXmark,
@@ -24,6 +25,10 @@ const Selling = () => {
 
   const formatTime = (time) => {
     return time < 10 ? `0${time}` : time;
+  };
+  const formatDate = (date) => {
+    const options = { weekday: 'long', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
   };
 
   const hours = formatTime(currentTime.getHours());
@@ -100,28 +105,43 @@ const Selling = () => {
           </div>
 
           {/* Sidebar with Buttons and Clock */}
-          <div className="flex flex-col w-1/4 ml-4 max-[320px]:w-full max-[320px]:ml-0 max-[320px]:h-1/4 max-[320px]:mt-5">
+          <div
+              className="flex flex-col w-1/4 ml-4 max-[320px]:w-full max-[320px]:ml-0 max-[320px]:h-1/4 max-[320px]:mt-5 max-[320px]:flex-wrap max-[320px]:flex-row max-[320px]:justify-evenly">
+            <div
+                className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg mb-4 max-[320px]:hidden">
+              <FaCalendar className="text-[#4E82E4] mr-2"/>
+              <span className="text-xl font-semibold">{formatDate(currentTime)}</span>
+            </div>
             {/* Clock */}
-            <div className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg mb-4 max-[320px]:p-1 max-[320px]:w-1/2">
-              <FaClock className="text-[#4E82E4] mr-2" />
+            <div
+                className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg mb-4 max-[320px]:hidden">
+              <FaClock className="text-[#4E82E4] mr-2"/>
               <span className="text-xl font-semibold">{hours}:{minutes}:{seconds}</span>
             </div>
 
             {/* Buttons */}
-            <button className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded mb-4 max-[320px]:p-1">
+            <button
+                className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded mb-4 max-[320px]:px-3 max-[320px]:w-2/5 max-[320px]:m-2">
               Checkout
             </button>
-            <button className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded mb-4 max-[320px]:p-1">
+            <button
+                className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded mb-4 max-[320px]:px-3 max-[320px]:w-2/5 max-[320px]:m-2">
               Discounts
             </button>
-            <button className="bg-[#DF9677] hover:bg-red-600 text-white font-semibold py-2 px-4 rounded max-[320px]:p-1">
+            <button
+                className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded mb-4 max-[320px]:px-3 max-[320px]:w-2/5 max-[320px]:m-2">
+              History
+            </button>
+            <button
+                className="bg-[#DF9677] hover:bg-red-600 text-white font-semibold py-2 px-4 rounded max-[320px]:px-3 max-[320px]:w-2/5 max-[320px]:mb-2 max-[320px]:m-2">
               Cancel
             </button>
           </div>
         </div>
 
         {/* Barcode Input Field with Submit Button */}
-        <div className="mt-4 flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3 space-x-4 max-[320px]:mt-0 max-[320px]:mb-1">
+        <div
+            className="mt-4 flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3 space-x-4 max-[320px]:mt-0 max-[320px]:mb-1">
           <FaBarcode className="text-[#4E82E4] mr-2 max-[320px]:h-full max-[320px]:w-1/6" />
           <input type="text" className="w-full outline-none" placeholder="Enter Barcode" maxLength="13"/>
           <button className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-1 px-10 rounded max-[320px]:px-2">

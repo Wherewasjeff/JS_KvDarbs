@@ -35,13 +35,13 @@ function Register() {
     }
 
     try {
-      const response = await axios.post('http://my-laravel-app.test/register',
+      const response = await axios.post('http://my-laravel-app.test/api/register',
           {
         name: formData.name,
         last_name: formData.lastName,
         email: formData.email,
         password: formData.password,
-      }, {headers:{"Access-Control-Allow-Origin" : "*"}});
+      });
 
       // Handle successful registration
       if (response.status === 201) {

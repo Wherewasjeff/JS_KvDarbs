@@ -7,19 +7,24 @@ import Addstorage from './Addstorage';
 import Users from './Users';
 import Selling from './Sell';
 import Lowstock from './Lowstock';
+import {AuthProvider} from "./AuthContext";
+import ProtectedRoute from "./ProtectedRoute";
 function App() {
   return (
+
     <Router>
+      <AuthProvider>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/Sell" element={<Selling />} />
+          <Route path="/Sell" element={<ProtectedRoute><Selling /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
-        <Route path="/storeinfo" element={<Storeinfo />} />
-        <Route path="/storestatus" element={<Storestatus />} />
-        <Route path="/addstorage" element={<Addstorage />} />
-        <Route path="/Users" element={<Users />} />
-        <Route path="/lowstock" element={<Lowstock />} />
+        <Route path="/storeinfo" element={<ProtectedRoute><Storeinfo /></ProtectedRoute>} />
+          <Route path="/storestatus" element={<ProtectedRoute><Storestatus /></ProtectedRoute>} />
+          <Route path="/addstorage" element={<ProtectedRoute><Addstorage /></ProtectedRoute>} />
+          <Route path="/Users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+          <Route path="/lowstock" element={<ProtectedRoute><Lowstock /></ProtectedRoute>} />
       </Routes>
+      </AuthProvider>
     </Router>
   );
 }
