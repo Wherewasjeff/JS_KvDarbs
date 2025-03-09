@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './Sidebar';
+import Sidebar from '../../Sidebar';
+import axios from 'axios';
 import {
   FaCalendar,
   FaDollarSign,
@@ -10,10 +11,12 @@ import {
   FaTrashCan,
   FaPen
 } from 'react-icons/fa6';
+import {useAuth} from "../Authentification/AuthContext";
 
 const Selling = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
-
+  const { user, setUser } = useAuth();
+  const [store, setStore] = useState({});
   // Update clock every second
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -60,14 +63,28 @@ const Selling = () => {
   const removeItem = (id) => {
     setItems(items.filter(item => item.id !== id));
   };
+  useEffect(() => {
+    const getStoreInfo = async () => {
+      const store_id = user.store_id;
+      if (store_id) {
+        try {
+          const response = await axios.get(`http://my-laravel-app.test/api/show/${store_id}`);
+          setStore(response.data);
+        } catch (error) {
+          console.error("Error fetching store data:", error);
+        }
+      }
+    };
+    getStoreInfo();
+  }, [user.store_id]);
 
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar storeName={store.storename} employeeName={user.name} />
 
       {/* Main Content */}
-      <div className="w-5/6 bg-[#f8fafe] p-5 h-screen flex flex-col max-[320px]:w-screen">
+      <div className="ml-[16.67%] w-5/6 bg-[#f8fafe] p-5 h-screen flex flex-col max-[320px]:w-screen max-[320px]:ml-0">
         {/* Items Container */}
         <div className="flex flex-grow max-[320px]:flex-wrap">
           <div className="w-3/4 bg-white shadow-lg rounded-lg p-4 space-y-4 max-[320px]:w-full max-[320px]:h-2/3 max-[320px]:max-h-2/3 max-[320px]:mt-10">
@@ -98,7 +115,7 @@ const Selling = () => {
             </div>
 
             {/* Total Row (always visible) */}
-            <div className="flex justify-between items-center h-max border-t border-gray-300 pt-2 mt-2 max-[320px]:mt-0 max-[320px]:pt-0">
+            <div className="flex justify-between items-center h-max border-t border-gray-300 pt-2 my-2 max-[320px]:mt-0 max-[320px]:pt-0">
               <span className="font-bold text-2xl">Total:</span>
               <span className="font-bold text-2xl">${total.toFixed(2)}</span>
             </div>
@@ -110,13 +127,13 @@ const Selling = () => {
             <div
                 className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg mb-4 max-[320px]:hidden">
               <FaCalendar className="text-[#4E82E4] mr-2"/>
-              <span className="text-xl font-semibold">{formatDate(currentTime)}</span>
+              <span className="text-xl text-center justify-center w-full flex flex-grow-1 font-semibold">{formatDate(currentTime)}</span>
             </div>
             {/* Clock */}
             <div
                 className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg mb-4 max-[320px]:hidden">
               <FaClock className="text-[#4E82E4] mr-2"/>
-              <span className="text-xl font-semibold">{hours}:{minutes}:{seconds}</span>
+              <span className="text-xl text-center font-semibold justify-center w-full flex flex-grow-1">{hours}:{minutes}:{seconds}</span>
             </div>
 
             {/* Buttons */}

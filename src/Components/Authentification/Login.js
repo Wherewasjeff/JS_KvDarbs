@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './App.css';
+import '../../App.css';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaLanguage } from 'react-icons/fa6';
 import axios from 'axios';
@@ -23,24 +23,31 @@ function Login() {
         email,
         password,
       }, { withCredentials: true }); // Sends the credentials with the request
-      const userdata = response.data.user
-      console.log(userdata)
-      if (response){
+
+      const userdata = response.data.user;
+      console.log(userdata);
+
+      if (response) {
         setUserdata(userdata);
         console.log(response.data.user.last_name);
       }
+
       if (response.data.token) {
         // Store token (optional, depends on your auth flow)
         localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
 
-        // Redirect to a different page (e.g., dashboard)
-        navigate('/storeinfo', {});
+        // Redirect to a different page (e.g., storeinfo)
+        navigate('/storeinfo');
+
+        // Wait for 1 second before reloading the page
+        setTimeout(() => {
+          window.location.reload(); // Reload the page
+        }, 0); // Delay of 1000ms (1 second)
       }
     } catch (error) {
-      // Handle errors
       setErrorMessage('Invalid email or password');
-      console.error('Error during login:', error);
+      console.error('Login failed:', error);
     }
   };
 

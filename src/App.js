@@ -1,25 +1,26 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Login from './Login';
-import Register from './Register';
-import Storeinfo from './Storeinfo';
-import Storestatus from './Storestatus';
-import Addstorage from './Addstorage';
-import Users from './Users';
-import Selling from './Sell';
-import Lowstock from './Lowstock';
-import {AuthProvider} from "./AuthContext";
-import ProtectedRoute from "./ProtectedRoute";
+import Login from './Components/Authentification/Login';
+import Register from './Components/Authentification/Register';
+import Storeinfo from './Components/Store/Storeinfo';
+import Storestatus from './Components/Store/Storestatus';
+import Addstorage from './Components/Storage/Addstorage';
+import Users from './Components/Store/Users';
+import Selling from './Components/Store/Sell';
+import Lowstock from './Components/Storage/Lowstock';
+import {AuthProvider} from "./Components/Authentification/AuthContext";
+import ProtectedRoute from "./Components/Authentification/ProtectedRoute";
+import LoggedIn from "./Components/Authentification/LoggedIn";
 function App() {
   return (
 
     <Router>
       <AuthProvider>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<LoggedIn><Login /></LoggedIn>} />
           <Route path="/Sell" element={<ProtectedRoute><Selling /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
         <Route path="/storeinfo" element={<ProtectedRoute><Storeinfo /></ProtectedRoute>} />
-          <Route path="/storestatus" element={<ProtectedRoute><Storestatus /></ProtectedRoute>} />
+          <Route path="/Storestatus" element={<ProtectedRoute><Storestatus /></ProtectedRoute>} />
           <Route path="/addstorage" element={<ProtectedRoute><Addstorage /></ProtectedRoute>} />
           <Route path="/Users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
           <Route path="/lowstock" element={<ProtectedRoute><Lowstock /></ProtectedRoute>} />

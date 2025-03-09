@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Sidebar from './Sidebar';
+import Sidebar from '../../Sidebar';
 import {
   FaCalendar,
   FaClock,
@@ -49,7 +49,7 @@ const Lowstock = () => {
   return (
     <div className="flex h-screen">
       <Sidebar />
-      <div className="w-5/6 bg-[#f8fafe] p-10 -mb-24 h-screen max-[320px]:w-full">
+      <div className="ml-[16.67%] w-5/6 bg-[#f8fafe] p-10 -mb-24 h-screen max-[320px]:w-full max-[320px]:ml-0">
         {/* Top Container */}
         <div className="w-full h-auto flex justify-between items-center mb-4 max-[320px]:flex-wrap max-[320px]:justify-center">
           <div className="flex items-center space-x-4 max-[320px]:flex-wrap max-[320px]:justify-center max-[320px]:sppace-x-0">
