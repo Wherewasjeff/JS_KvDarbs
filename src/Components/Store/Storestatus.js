@@ -5,7 +5,7 @@ import {FaChevronLeft, FaChevronRight, FaPen, FaXmark, FaStore, FaMapPin, FaBoxe
 import axios from "axios";
 
 const Storestatus = () => {
-    const { user } = useAuth();
+    const { user, authToken } = useAuth();
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [selectedDate, setSelectedDate] = useState(null);
@@ -17,24 +17,52 @@ const Storestatus = () => {
     useEffect(() => {
         const getStoreInfo = async () => {
             const store_id = user.store_id;
+            const userRole = localStorage.getItem('userRole'); // Get user role
+
             if (store_id) {
                 try {
-                    // Fetch store information based on store_id
-                    const storeResponse = await axios.get(`https://stocksmart.xyz/api/show/${store_id}`);
-                    setStore(storeResponse.data); // Store data from the backend
-                    console.log(storeResponse.data)
+                    // Fetch store information
+                    const storeResponse = await axios.get(
+                        `https://stocksmart.xyz/api/show/${store_id}`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${user.token}`,
+                            },
+                        }
+                    );
+                    setStore(storeResponse.data);
                     setWorkingHours(storeResponse.data.working_hours);
 
-                    // Fetch user information (optional, if needed to display user info)
-                    const userResponse = await axios.get(`https://stocksmart.xyz/api/user/${user.id}`);
-                    setUserData(userResponse.data);
+                    // Fetch user/worker information based on role
+                    if (userRole === 'worker') {
+                        const workerResponse = await axios.get(
+                            `https://stocksmart.xyz/api/workers/${user.id}`,
+                            {
+                                headers: {
+                                    Authorization: `Bearer ${user.token}`,
+                                },
+                            }
+                        );
+                        setUserData(workerResponse.data);
+                    } else {
+                        const userResponse = await axios.get(
+                            `https://stocksmart.xyz/api/user/${user.id}`,
+                            {
+                                headers: {
+                                    Authorization: `Bearer ${user.token}`,
+                                },
+                            }
+                        );
+                        setUserData(userResponse.data);
+                    }
+
                 } catch (error) {
                     console.error("Error fetching store or user data:", error);
                 }
             }
         };
         getStoreInfo();
-    }, []);
+    }, [user.token, user.store_id, user.id]);
 
     // Calendar setup
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

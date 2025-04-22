@@ -83,6 +83,7 @@ const Sidebar = ({ employeeName, storeName }) => {
     const logout = () => {
         localStorage.removeItem("user");
         localStorage.removeItem("authToken");
+        localStorage.removeItem("userRole");
         setTimeout(() => {
             window.location.reload();
         }, 100);
@@ -94,7 +95,7 @@ const Sidebar = ({ employeeName, storeName }) => {
         localStorage.setItem('language', newLanguage);
         setTimeout(() => {
             window.location.reload();
-        }, 3000);
+        }, 1000);
     };
 
     const handleProfileSave = async (e) => {
@@ -360,15 +361,15 @@ const Sidebar = ({ employeeName, storeName }) => {
                     <div className="grid grid-cols-2 gap-4 w-full px-6 mt-4 transition-all duration-300">
                         <button
                             onClick={toggleProfileOverlay}
-                            className="w-full bg-[#4E82E4] text-white flex flex-col justify-center items-center px-4 py-3 rounded-lg shadow-md transition-all duration-300 hover:bg-[#6a9aec]"
+                            className="w-full bg-[#4E82E4] text-white flex flex-col justify-between items-center px-4 py-3 rounded-lg shadow-md text-sm transition-all duration-300 hover:bg-[#6a9aec]"
                         >
-                            <FaPen className="w-5 mr-2 transition-all duration-300" />{sidebartranslations[language].editProfile}
+                            <FaPen className="w-5 transition-all duration-300" />{sidebartranslations[language].editProfile}
                         </button>
                         <button
                             onClick={logout}
-                            className="w-full bg-[#DF9677] text-white flex flex-col justify-center items-center px-4 py-3 rounded-lg shadow-md transition-all duration-300 hover:bg-red-600"
+                            className="w-full bg-[#DF9677] text-white flex flex-col justify-between items-center px-4 py-3 rounded-lg shadow-md transition-all duration-300 hover:bg-red-600"
                         >
-                            <BiSolidExit className="w-5 mr-2 transition-all duration-300" />{sidebartranslations[language].logout}
+                            <BiSolidExit className="w-5 transition-all duration-300" />{sidebartranslations[language].logout}
                         </button>
                     </div>
                 </div>
@@ -476,14 +477,14 @@ const Sidebar = ({ employeeName, storeName }) => {
                                 className="w-full bg-[#4E82E4] text-white flex flex-col justify-center items-center px-4 py-3 rounded-lg shadow-md transition-all duration-300 hover:bg-[#6a9aec]"
                             >
                                 <FaPen
-                                    className="w-5 mr-2 transition-all duration-300"/>{sidebartranslations[language].editProfile}
+                                    className="w-5 transition-all duration-300"/>{sidebartranslations[language].editProfile}
                             </button>
                             <button
                                 onClick={logout}
                                 className="w-full bg-[#DF9677] text-white flex flex-col justify-center items-center px-4 py-3 rounded-lg shadow-md transition-all duration-300 hover:bg-red-600"
                             >
                                 <BiSolidExit
-                                    className="w-5 mr-2 transition-all duration-300"/>{sidebartranslations[language].logout}
+                                    className="w-5 transition-all duration-300"/>{sidebartranslations[language].logout}
                             </button>
                         </div>
                     </div>

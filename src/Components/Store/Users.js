@@ -217,7 +217,7 @@ const Users = () => {
           </div>
           {/* Middle Container - Plates */}
           <div
-              className="w-full min-h-[650px] grid grid-cols-6 gap-4 p-5 max-sm:grid-cols-2 max-sm:min-h-[250px] max-sm:p-2 max-sm:gap-2">
+              className="w-full min-h-12 grid grid-cols-6 gap-4 p-5 max-sm:grid-cols-2 max-sm:min-h-[250px] max-sm:p-2 max-sm:gap-2">
             {/* Add Item Plate */}
             <div
                 className="border border-gray-300 max-sm:h-full max-h-[352px] bg-white shadow-lg rounded-lg p-4 flex flex-col items-center justify-center shadow-[#4E82E4] hover:bg-blue-50 cursor-pointer"
@@ -230,9 +230,7 @@ const Users = () => {
             {workers.length > 0 ? (
                 workers.map((worker) => (
                     <div key={worker.id}
-                         className="border border-gray-300 max-h-[352px] h-full w-11/12 bg-white shadow-lg rounded-lg p-2 flex justify-evenly items-center flex-col max-sm:flex-wrap max-sm:h-full max-sm:p-1">
-                      <img src="/user.jpg" alt="Worker"
-                           className="w-11/12 object-cover mb-1 rounded-md max-sm:h-1/3"/>
+                         className="border border-gray-300 max-h-[352px] h-full w-full bg-white shadow-lg rounded-lg p-2 flex justify-evenly items-center flex-col max-sm:flex-wrap max-sm:h-full max-sm:p-1">
                       <p className="text-center text-lg font-bold">{worker.name} {worker.lastname}</p>
                       <p className="text-center text-sm">Position: {worker.position}</p>
                       <p className="text-center text-sm">Age: {worker.age}</p>

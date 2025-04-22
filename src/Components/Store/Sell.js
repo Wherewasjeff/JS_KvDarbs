@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../Sidebar';
 import axios from 'axios';
+import '../../App.css';
 import {
   FaCalendar,
   FaDollarSign,
@@ -11,6 +12,7 @@ import {
   FaTrashCan,
   FaPen
 } from 'react-icons/fa6';
+import { CgSpinnerAlt } from "react-icons/cg";
 import { useAuth } from "../Authentification/AuthContext";
 
 const Selling = () => {
@@ -19,6 +21,9 @@ const Selling = () => {
   const { user, setUser, authToken } = useAuth();
   const [store, setStore] = useState({});
   const [loading, setLoading] = useState(false);  // For loading state
+  const [showHistory, setShowHistory] = useState(false); // Toggles history overlay
+  const [history, setHistory] = useState([]);         // raw sales records
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [products, setProducts] = useState([]);   // For storing fetched products
   const [barcodeInput, setBarcodeInput] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -113,36 +118,58 @@ const Selling = () => {
     }
   }, [barcodeInput, filteredProducts]);
 
-  const handleAddItem = () => {
-    if (!barcodeInput.trim()) return; // Prevent adding empty input
-    let productToAdd = selectedProduct || (filteredProducts.length === 1 ? filteredProducts[0] : null);
-    if (!productToAdd) return; // Prevent adding if no valid product is found
+  useEffect(() => {
+    const match = products.find(p => p.barcode === barcodeInput);
+    if (match) handleAddItem(match);
+  }, [barcodeInput, products]);
 
-    setItems((prevItems) => {
-      const existingItem = prevItems.find(item => item.barcode === productToAdd.barcode);
-      if (existingItem) {
-        // Increase quantity if item already exists
-        return prevItems.map(item =>
-            item.barcode === productToAdd.barcode
-                ? { ...item, quantity: (item.quantity || 1) + 1 }
-                : item
+  useEffect(() => {
+    if (showHistory) {
+      setLoadingHistory(true);
+      axios.get(
+          `https://stocksmart.xyz/api/sales?store_id=${user.store_id}`,
+          { headers: { Authorization: `Bearer ${authToken}` } }
+      )
+          .then(res => setHistory(res.data))
+          .catch(err => console.error('History load failed:', err))
+          .finally(() => setLoadingHistory(false));
+    }
+  }, [showHistory]);
+
+  const handleAddItem = (productOverride) => {
+    // if caller passed a product (from the useEffect), use it;
+    // otherwise, use your existing barcode/name logic:
+    const toAdd = productOverride ||
+        (filteredProducts.length === 1
+            ? filteredProducts[0]
+            : null);
+    if (!toAdd) return;
+
+    setItems(prev => {
+      const existing = prev.find(i => i.barcode === toAdd.barcode);
+      if (existing) {
+        return prev.map(i =>
+            i.barcode === toAdd.barcode
+                ? {
+                  ...i,
+                  // clamp at quantity_in_salesfloor
+                  quantity: Math.min((i.quantity || 1) + 1, i.quantity_in_salesfloor)
+                }
+                : i
         );
-      } else {
-        // Otherwise, add as a new item
-        return [
-          ...prevItems,
-          {
-            ...productToAdd,
-            price: parseFloat(productToAdd.price) || 0,
-            quantity: 1, // Ensure quantity starts at 1
-            id: prevItems.length + 1, // Unique ID
-          },
-        ];
       }
+      return [
+        ...prev,
+        {
+          ...toAdd,
+          price: parseFloat(toAdd.price),
+          quantity: 1,
+          id: toAdd.id,
+        }
+      ];
     });
-    // Clear input field and reset selected product
-    setBarcodeInput("");
-    setSelectedProduct(null);
+
+    setBarcodeInput('');
   };
 
   const updateItemQuantity = (itemId, newQuantity) => {
@@ -164,24 +191,99 @@ const Selling = () => {
     }
   };
 
-  return (
-      // Outer container: Uses w-5/6 with ml-[16.67%] by default,
-      // switches to full width (w-full) with ml-0 at max-xl.
-      <div className="flex h-screen w-5/6 ml-[16.67%] max-xl:w-full max-xl:ml-0 transition-all duration-300">
+  const handleCheckout = async () => {
+    setLoading(true);
+    try {
+      // build payload
+      const payload = {
+        store_id: user.store_id,
+        items: items.map(i => ({
+          product_id: i.id,
+          sold: i.quantity
+        }))
+      };
 
+      await axios.post(
+          'https://stocksmart.xyz/api/sell',
+          payload,
+          { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+
+      // on success, clear and reload
+      setItems([]);
+      window.location.reload();
+    } catch (error) {
+      // log the actual validation errors from Laravel
+      console.error('Sale submission failed:', error.response?.data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+      <div className="flex h-screen w-5/6 ml-[16.67%] max-xl:w-full max-xl:ml-0 transition-all duration-300">
+        {loading && (
+            <div className="fixed inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 z-50">
+              <CgSpinnerAlt className="animate-spin text-5xl text-white" />
+              <p className="text-white mt-4">Loading...</p>
+            </div>
+        )}
         {/* Sidebar */}
         <Sidebar storeName={store.storename} employeeName={user.name} />
-
+        {/* History Overlay */}
+        {showHistory && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+              <div className="relative bg-white p-4 w-3/4 h-3/4 rounded-lg shadow-lg overflow-y-scroll overflow-x-hidden">
+                <FaXmark
+                    className="absolute top-4 right-4 text-gray-700 cursor-pointer"
+                    onClick={() => setShowHistory(false)}
+                />
+                {loadingHistory ? (
+                    <div className="flex-1 flex items-center justify-center">
+                      <CgSpinnerAlt className="animate-spin text-3xl text-gray-500" />
+                    </div>
+                ) : (
+                    history.length === 0 ? (
+                        <div className="text-center text-gray-500 mt-8">No sales to show</div>
+                    ) : (
+                        // group by date
+                        Object.entries(
+                            history.reduce((acc, sale) => {
+                              (acc[sale.date] ||= []).push(sale);
+                              return acc;
+                            }, {})
+                        ).map(([date, salesOnDate]) => (
+                            <div key={date} className="mb-6">
+                              <div className="w-full h-8 border-b-2 mb-6 font-semibold text-gray-600">
+                                {new Date(date).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}
+                              </div>
+                              {salesOnDate.map(sale => (
+                                  <div key={sale.id} className="flex justify-between p-3 shadow-md shadow-gray-400 rounded-lg my-2">
+                                    <div>
+                                      <span className="font-semibold">{sale.seller_name}</span>:&nbsp;
+                                      <span>{sale.product_name}</span> ${sale.price.toFixed(2)} × {sale.sold}
+                                    </div>
+                                    <div>
+                                      <span className="font-semibold">${(sale.price * sale.sold).toFixed(2)}</span>
+                                      <span className="ml-4 text-sm text-gray-500">{sale.time}</span>
+                                    </div>
+                                  </div>
+                              ))}
+                              <div className="flex justify-end font-bold mt-2">
+                                Total: ${salesOnDate.reduce((sum, s) => sum + s.price * s.sold, 0).toFixed(2)}
+                              </div>
+                            </div>
+                        ))
+                    )
+                )}
+              </div>
+            </div>
+        )}
         {/* Main Content container: full width inside outer container */}
         <div className="w-full bg-[#f8fafe] p-5 h-screen flex flex-col max-xl:p-2 transition-all duration-300">
-
-          {/* Duplicate Clock and Calendar */}
-          {/*
-          On screens below xl the clock and calendar will be rendered in this header.
-          On xl screens and above, the version in the right sidebar (described below) will be visible.
-        */}
-          <div className="xl:hidden flex transition-all duration-300 mt-2 justify-evenly max-sm:justify-end">
-            <div className="flex justify-center items-center max-md:w-1/2 w-2/5 p-2 bg-white shadow-lg rounded-lg transition-all duration-300">
+          <div
+              className="xl:hidden flex transition-all duration-300 mt-2 justify-evenly max-sm:justify-end max-sm:space-x-1">
+          <div className="flex justify-center items-center max-md:w-1/2 w-2/5 p-2 bg-white shadow-lg rounded-lg transition-all duration-300">
               <FaCalendar className="text-[#4E82E4] mr-2 transition-all duration-300" />
               <span className="text-xl font-semibold max-sm:text-sm transition-all duration-300">
               {formatDate(currentTime)}
@@ -199,49 +301,68 @@ const Selling = () => {
           <div className="flex h-screen max-xl:flex-wrap max-xl:flex-col max-xl:mt-2 transition-all duration-300">
 
             {/* Items Container */}
-            <div className="w-3/4 bg-white shadow-lg rounded-lg p-4 space-y-4 flex flex-col max-xl:w-full max-xl:flex-grow transition-all duration-300">
+            <div className="w-3/4 bg-white shadow-lg rounded-lg p-4 max-sm:px-1 space-y-4 flex flex-col max-xl:w-full max-xl:flex-grow transition-all duration-300">
               <h2 className="text-lg font-bold text-[#4E82E4] transition-all duration-300">Items List</h2>
               {/* Scrollable Items List */}
               <div className="flex-grow border border-gray-300 p-4 rounded-lg overflow-y-scroll space-y-4 transition-all duration-300 max-xl:p-1">
                 {items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg shadow-md transition-all duration-300">
+                    <div
+                        key={item.id}
+                        className={`relative flex justify-between items-center bg-gray-50 rounded-lg shadow-md transition-all duration-300 ${
+                            item.quantity_in_salesfloor === 0 ? 'opacity-50' : ''
+                        }`}
+                    >
+                      {item.quantity_in_salesfloor === 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg pointer-events-none">
+                            <span className="text-red-500 font-semibold">Insufficient quantity</span>
+                          </div>
+                      )}
                       {/* Item Image */}
-                      <div className="h-14 w-14 rounded mr-4 max-xl:w-5 max-xl:h-5 transition-all duration-300">
+                      <div className="w-14 h-14 max-sm:w-10 max-sm:h-10 max-sm:mr-1 flex justify-center items-center rounded max-xl:max-w-1/2 object-cover max-xl:max-h-full transition-all duration-300">
                         {item.image ? (
                             <img
                                 src={item.image ? `https://stocksmart.xyz/backend/public/${item.image}` : '/noimage.png'}
                                 alt={item.product_name}
-                                className="w-full h-full object-cover rounded transition-all duration-300"
+                                className="w-12 h-12 object-cover rounded transition-all duration-300"
                             />
                         ) : (
-                            <div className="w-full h-full bg-gray-300 flex items-center justify-center text-white transition-all duration-300">
+                            <div className="w-full h-full bg-gray-300 m-2 flex items-center justify-center text-white transition-all duration-300">
                               Loading...
                             </div>
                         )}
                       </div>
                       {/* Item Name and Barcode */}
                       <div className="flex flex-col transition-all duration-300">
-                        <p className="font-semibold">{item.product_name}</p>
-                        <p className="text-sm text-gray-500">Barcode: {item.barcode}</p>
+                        <p className="font-semibold max-sm:text-xs">{item.product_name}</p>
+                        <p className="text-sm text-gray-500 max-sm:text-xs">Barcode: {item.barcode}</p>
                       </div>
                       {/* Quantity, Price, Edit, and Delete */}
-                      <div className="flex items-center space-x-4 max-xl:flex-wrap max-xl:space-x-0 max-xl:justify-between transition-all duration-300">
-                        <p className="text-[#4E82E4]">QTY:</p>
-                        <input
-                            type="number"
-                            className="bg-white border border-gray-300 rounded-md px-2 py-1 w-16 text-center transition-all duration-300"
-                            value={item.quantity || 1}
-                            min="1"
-                            onChange={(e) => handleQuantityChange(e, item.id)}
-                        />
-                        <span className="font-semibold text-[#4E82E4] max-xl:ml-3 transition-all duration-300">
-                      ${parseFloat(item.price).toFixed(2)}
-                    </span>
-                        <FaPen className="text-gray-500 cursor-pointer hover:text-blue-500 transition-all duration-300" />
-                        <FaTrashCan
-                            className="text-gray-500 cursor-pointer hover:text-red-600 transition-all duration-300"
-                            onClick={() => removeItem(item.id)}
-                        />
+                      <div className="flex items-center space-x-4 max-xl:space-x-2 max-xl:justify-between transition-all duration-300">
+                        <div className="flex justify-center items-center space-x-2 max-md:flex-col max-md:space-x-0">
+                          <p className={`${item.quantity >= item.quantity_in_salesfloor ? 'text-red-500' : 'text-[#4E82E4]'} responsive-text`}>QTY:</p>
+                          <input
+                              type="number"
+                              min="1"
+                              max={item.quantity_in_salesfloor}
+                              value={item.quantity}
+                              onChange={e => handleQuantityChange(e, item.id)}
+                              className="bg-white border rounded px-2 py-1 w-12 text-center"
+                              disabled={item.quantity_in_salesfloor === 0}
+                          />
+                          <span className="font-semibold max-sm:w-16 text-[#4E82E4] flex justify-center max-xl:ml-3 transition-all duration-300 responsive-text truncate">
+          $ {parseFloat(item.price).toFixed(2)}
+        </span>
+                        </div>
+                        <div className="flex h-14">
+                          <FaPen
+                              className="peer p-3 h-14 text-gray-500 flex justify-center items-center w-10 border-l border-gray-200 cursor-pointer hover:border-[#4E82E4] hover:bg-blue-200 hover:text-[#4E82E4] transition-all duration-300"
+                              disabled={item.quantity_in_salesfloor === 0}
+                          />
+                          <FaTrashCan
+                              className="p-3 h-14 text-gray-500 flex justify-center items-center w-10 rounded-r border-l border-gray-200 cursor-pointer peer-hover:border-[#4E82E4] hover:border-red-600 hover:bg-red-200 hover:text-red-600 transition-all duration-300 z-10"
+                              onClick={() => removeItem(item.id)}
+                          />
+                        </div>
                       </div>
                     </div>
                 ))}
@@ -258,14 +379,16 @@ const Selling = () => {
                           max-xl:w-full max-xl:ml-0 max-xl:h-1/6 max-xl:grid max-xl:grid-cols-2 max-xl:my-2 max-xl:gap-4">
               {/* Clock and Calendar (only visible on xl and above) */}
               <div className="flex flex-col space-y-4 mb-4 transition-all duration-300 max-xl:hidden">
-                <div className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg transition-all duration-300">
-                  <FaCalendar className="text-[#4E82E4] mr-2 transition-all duration-300" />
+                <div
+                    className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg transition-all duration-300">
+                  <FaCalendar className="text-[#4E82E4] mr-2 transition-all duration-300"/>
                   <span className="text-xl font-semibold transition-all duration-300">
                   {formatDate(currentTime)}
                 </span>
                 </div>
-                <div className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg transition-all duration-300">
-                  <FaClock className="text-[#4E82E4] mr-2 transition-all duration-300" />
+                <div
+                    className="flex justify-center items-center p-4 bg-white shadow-lg rounded-lg transition-all duration-300">
+                  <FaClock className="text-[#4E82E4] mr-2 transition-all duration-300"/>
                   <span className="text-xl font-semibold transition-all duration-300">
                   {hours}:{minutes}:{seconds}
                 </span>
@@ -273,10 +396,13 @@ const Selling = () => {
               </div>
               {/* Buttons */}
               <button
-                  className={`bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 mb-4 rounded transition-all duration-300 max-xl:m-0 ${
-                      items.length === 0 ? "opacity-50 cursor-not-allowed" : ""
+                  className={`bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold mb-4 py-2 px-4 rounded ${
+                      (items.length === 0 || items.some(item => item.quantity_in_salesfloor === 0))
+                          ? 'opacity-50 cursor-not-allowed'
+                          : ''
                   }`}
-                  disabled={items.length === 0}
+                  onClick={handleCheckout}
+                  disabled={items.length === 0 || items.some(item => item.quantity_in_salesfloor === 0)}
               >
                 Checkout
               </button>
@@ -290,6 +416,7 @@ const Selling = () => {
               </button>
               <button
                   className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 mb-4 rounded transition-all duration-300 max-xl:m-0"
+                  onClick={() => setShowHistory(true)}
               >
                 History
               </button>

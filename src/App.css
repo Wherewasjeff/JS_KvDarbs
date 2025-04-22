@@ -3,6 +3,10 @@
   text-align: center;
 }
 
+*{
+  transition: all;
+  animation-duration: 300ms;
+}
 .App-logo {
   height: 40vmin;
   pointer-events: none;
@@ -325,4 +329,23 @@ body{
 }
 root{
   overflow-x: hidden;
+}
+.responsive-heading {
+  /* product_name: scales from 0.75rem → 1.125rem */
+  font-size: clamp(0.75rem, 1vw, 1.125rem);
+}
+.responsive-btext {
+  font-size: clamp(2rem, 1vw, 1.125rem);
+}
+.responsive-text {
+  /* all other text: scales from 0.75rem → 1rem */
+  font-size: clamp(0.75rem, 1vw, 1rem);
+}
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

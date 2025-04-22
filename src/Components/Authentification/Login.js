@@ -34,6 +34,7 @@ function Login() {
       localStorage.setItem('authToken', token);
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('userRole', role); // Store role (owner or worker)
+      localStorage.removeItem("pageHiddenTime");
 
       console.log("Login successful:", user);
 
