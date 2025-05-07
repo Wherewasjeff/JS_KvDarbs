@@ -56,33 +56,34 @@ function Login() {
   };
 
   return (
-      <div className="flex h-screen bg-[#f8fafe] overflow-hidden max-2xl:flex-col">
+      <div className="flex h-screen bg-[#f8fafe] overflow-hidden max-md:flex-col">
         {/* Left side with blue background */}
-        <h1 className="text-white font-semibold text-9xl absolute top-[45%] left-[18%] z-10 font-teko max-2xl:hidden max-2xl:scale-0 select-none">Stock</h1>
+        <div className="absolute top-[45%] left-[20%] max-2xl:left-[5%] transition-all duration-300 flex z-20">
+        <h1 className="text-white font-semibold text-9xl z-10 font-teko max-lg:hidden max-md:scale-0 select-none">Stock</h1>
         <img
         src="./IconsOrange/Logoorange.png"
         alt="Logo"
-        className="absolute z-10 top-[45%] left-[31.5%] w-[100px] h-[100px] fall-then-levitate max-2xl:hidden max-2xl:scale-0 select-none"
+        className="z-10 w-[100px] h-[100px] fall-then-levitate ml-2 max-lg:hidden max-md:scale-0 select-none"
         />
-        <h1 className="text-white font-semibold text-9xl absolute top-[45%] left-[36.5%] z-20 font-teko max-2xl:hiddenc max-2xl:scale-0 select-none">mart</h1>
-
+        <h1 className="text-white font-semibold text-9xl z-20 font-teko max-lg:hidden max-md:scale-0 select-none">mart</h1>
+      </div>
         <div
-            className="w-1/2 bg-[#f8fafe] flex justify-center items-center relative max-2xl:w-[100%] max-2xl:absolute max-2xl:h-screen max-2xl:opacity-50">
+            className="w-1/2 bg-[#f8fafe] flex justify-center items-center relative max-md:w-[100%] max-lg:absolute max-lg:h-screen max-md:opacity-50">
           <div
-              className="w-full h-full bg-[#b4caf4] flex justify-center items-center absolute rotate-45 shift-right max-2xl:w-[150%]"></div>
+              className="w-full h-full bg-[#b4caf4] flex justify-center items-center absolute rotate-45 transition-all duration-300 shift-right max-lg:left-[-10%] max-lg:w-[150%]"></div>
           <div
-              className="w-full h-full bg-[#90b1ee] flex justify-center items-center absolute rotate-45 right-36 top-2 shift-left max-2xl:w-[150%]"></div>
+              className="w-full h-full bg-[#90b1ee] flex justify-center items-center absolute rotate-45 transition-all duration-300 right-36 top-2 shift-left max-lg:left-[-50%] max-lg:w-[150%]"></div>
           <div
-              className="w-full h-full bg-[#4E82E4] flex justify-center items-center absolute rotate-45 right-80 top-2 shift-diagonal max-2xl:w-[150%]"></div>
+              className="w-full h-full bg-[#4E82E4] flex justify-center items-center absolute rotate-45 transition-all duration-300 right-80 top-2 shift-diagonal max-lg:left-[-90%] max-lg:w-[150%]"></div>
         </div>
 
         {/* Right side with the login form */}
         <div
-            className="w-1/2 flex justify-center items-center relative max-2xl:w-screen max-2xl:overflow-hidden max-2xl:h-screen">
-          <img src="/Fullofoblack.png" alt="logo"
-               className="max-2xl:absolute max-2xl:top-16 max-2xl:visible hidden"/>
+            className="w-1/2 flex justify-center items-center relative max-lg:w-screen max-lg:overflow-hidden max-lg:h-screen">
+          <img src="/Fullogowhite.png" alt="logo"
+               className="max-md:relative max-md:top-16 max-md:visible hidden"/>
           <div
-              className="p-10 w-1/2 ml-20 bg-[#f8fafe] rounded-lg bg-opacity-10 max-2xl:w-11/12 max-2xl:ml-0 max-2xl:bg-[#f8fafe] max-2xl:p-5">
+              className="p-10 w-1/2 ml-20 bg-[#f8fafe] min-w-[300px] max-md:p-5 fade-in rounded-lg bg-opacity-10 max-xl:bg-opacity-50 transition-all duration-300 max-md:w-5/6 max-md:ml-0">
             {/* Login title with Teko font */}
             <h2 className="text-[#DF9677] text-5xl font-semibold mb-6 font-teko select-none">{translations.loginTitle}</h2>
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -161,5 +162,4 @@ function Login() {
       </div>
   );
 }
-
 export default Login;

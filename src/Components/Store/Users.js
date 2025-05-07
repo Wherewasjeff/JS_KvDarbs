@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../Authentification/AuthContext"; // Import auth context
 import axios from "axios";
 import Sidebar from '../../Sidebar';
+import { useTranslation }     from '../TranslationContext';
+import { usersTranslations } from '../TranslationContext';
 import {
   FaHouse,
   FaInfo,
@@ -21,8 +23,9 @@ const Users = () => {
   const [showOverlay, setShowOverlay] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const navigate = useNavigate();
-  const { authToken } = useAuth(); // Get auth token
-  const { user } = useAuth(); // Get logged-in user
+  const { authToken, user } = useAuth();
+  const { language, currencySymbol } = useTranslation();
+  const t = usersTranslations[language] || usersTranslations.en;
   const [workers, setWorkers] = useState([]); // Store workers
   const [formData, setFormData] = useState({ // Store worker form data
     name: "",
@@ -177,8 +180,7 @@ const Users = () => {
           <button
               className="bg-[#4E82E4] py-2 px-9 right-5 top-5 absolute text-white font-semibold rounded-lg hover:bg-[#6a9aec] transition-all hover:scale-110 max-sm:absolute max-sm:top-[95%] max-sm:w-11/12 max-sm:left-5 max-sm:right-0"
               onClick={handleDoneClick}
-          >
-            Done/Skip
+          >{t.doneSkip}
           </button>
           {/* Progress Bar */}
           <div className="flex justify-center w-1/2 absolute top-[5%] items-center max-sm:justify-evenly max-sm:w-full">
@@ -187,7 +189,7 @@ const Users = () => {
                   className="flex flex-col items-center z-20 bg-[#4E82E4] h-[50px] w-1/2 max-sm:w-full rounded-full p-3">
                 <FaCheck className="text-white size-full"/>
               </div>
-              <span className="text-lg font-teko text-[#DF9677] max-sm:hidden">Store info</span>
+              <span className="text-lg font-teko text-[#DF9677] max-sm:hidden">{t.storeInfo}</span>
             </div>
             <div className="w-[10%] h-[7px] bg-[#4E82E4] mb-6 -mx-12 flex justify-start items-center max-sm:mb-0">
             </div>
@@ -196,7 +198,7 @@ const Users = () => {
                   className="flex flex-col items-center z-20 bg-[#4E82E4] h-[50px] w-1/2 max-sm:w-full rounded-full p-3">
                 <FaCheck className="text-white size-full"/>
               </div>
-              <span className="text-lg font-teko text-[#DF9677] max-sm:hidden">Store info</span>
+              <span className="text-lg font-teko text-[#DF9677] max-sm:hidden">{t.addStorage}</span>
             </div>
             <div
                 className="w-[10%] h-[7px] bg-gray-300 mb-6 -mx-12 flex justify-start items-center max-sm:mb-0">
@@ -212,7 +214,7 @@ const Users = () => {
                     className={`text-white size-full ${isDone ? 'icon-fade-out absolute bottom-[0%] scale-50' : ''}`}/>
                 <FaCheck className={`text-white size-full ${isDone ? 'icon-fade-in' : 'hidden'}`}/>
               </div>
-              <span className="text-lg font-teko text-[#DF9677] max-sm:hidden">Add storage</span>
+              <span className="text-lg font-teko text-[#DF9677] max-sm:hidden">{t.employees}</span>
             </div>
           </div>
           {/* Middle Container - Plates */}
@@ -224,7 +226,7 @@ const Users = () => {
                 onClick={toggleOverlay}
             >
               <h1 className="w-20 h-20 text-7xl font-light mb-4 rounded-full flex justify-center items-center">+</h1>
-              <span className="text-lg font-bold">Add Worker</span>
+              <span className="text-lg font-bold">{t.addWorker}</span>
             </div>
 
             {workers.length > 0 ? (
@@ -232,9 +234,9 @@ const Users = () => {
                     <div key={worker.id}
                          className="border border-gray-300 max-h-[352px] h-full w-full bg-white shadow-lg rounded-lg p-2 flex justify-evenly items-center flex-col max-sm:flex-wrap max-sm:h-full max-sm:p-1">
                       <p className="text-center text-lg font-bold">{worker.name} {worker.lastname}</p>
-                      <p className="text-center text-sm">Position: {worker.position}</p>
-                      <p className="text-center text-sm">Age: {worker.age}</p>
-                      <p className="text-center text-sm">${worker.salary} p/h</p>
+                      <p className="text-center text-sm">{t.position}: {worker.position}</p>
+                      <p className="text-center text-sm">{t.age}: {worker.age}</p>
+                      <p className="text-center text-sm">{currencySymbol}{worker.salary} p/h</p>
                       <div className="flex justify-around mt-4">
                         <button className="bg-[#4E82E4] text-white py-3 px-3 mr-1 rounded-lg hover:bg-[#6a9aec]"
                                 onClick={() => {
@@ -256,7 +258,7 @@ const Users = () => {
                         </button>
                         <button className="bg-[#DF9677] text-white py-3 px-3 ml-1 rounded-lg hover:bg-red-600"
                                 onClick={async () => {
-                                  if (window.confirm(`Are you sure you want to delete ${worker.name}?`)) {
+                                  if (window.confirm(`${t.confirmDelete} ${worker.name}?`)) {
                                     try {
                                       await axios.delete(`https://stocksmart.xyz/api/workers/${worker.id}`, {
                                         headers: { Authorization: `Bearer ${authToken}` },
@@ -273,7 +275,7 @@ const Users = () => {
                     </div>
                 ))
             ) : (
-                <p className="col-span-6 absolute top-1/2 right-1/3 text-center text-gray-500 text-lg">No workers found for this store.</p>
+                <p className="col-span-6 absolute top-1/2 right-1/3 text-center text-gray-500 text-lg">{t.noWorkers}</p>
             )}
           </div>
         </div>
@@ -283,7 +285,7 @@ const Users = () => {
               <div
                   className="relative bg-white p-8 w-1/3 h-3/7 rounded-lg shadow-lg space-y-4 max-sm:p-4 max-sm:w-11/12 max-sm:rounded-md">
                 <FaXmark className="w-5 text-[#4E82E4] absolute top-4 right-4 cursor-pointer" onClick={toggleOverlay}/>
-                <h2 className="text-xl text-[#4E82E4] font-bold text-center">Add new worker</h2>
+                <h2 className="text-xl text-[#4E82E4] font-bold text-center">{t.addWorker}</h2>
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-4 max-sm:space-y-3 max-sm:w-full">
@@ -293,7 +295,7 @@ const Users = () => {
                     <input
                         type="text"
                         className="w-full outline-none"
-                        placeholder="First Name"
+                        placeholder={t.firstName}
                         value={formData.name}  // Bind input value to formData
                         onChange={(e) => setFormData({...formData, name: e.target.value})}  // Update formData
                     />
@@ -304,7 +306,7 @@ const Users = () => {
                     <input
                         type="text"
                         className="w-full outline-none"
-                        placeholder="Last Name"
+                        placeholder={t.lastName}
                         value={formData.lastname}  // Bind input value to formData
                         onChange={(e) => setFormData({...formData, lastname: e.target.value})}  // Update formData
                     />
@@ -358,7 +360,7 @@ const Users = () => {
                       <div className="w-full h-0.5 bg-[#DF9677]"></div>
                     </div>
                     <div className="h-full w-3/6 flex justify-center items-center max-sm:full">
-                      <p className="text-[#DF9677] font-semibold max-sm:text-xs">CREATE USER (OPTIONAL)</p>
+                      <p className="text-[#DF9677] font-semibold max-sm:text-xs">{t.createUser}</p>
                     </div>
                     <div className="h-full w-2/6 flex items-center">
                       <div className="w-full h-0.5 bg-[#DF9677]"></div>
@@ -369,7 +371,7 @@ const Users = () => {
                     <input
                         type="text"
                         className="w-full outline-none"
-                        placeholder="Username"
+                        placeholder={t.username}
                         value={formData.username}  // Bind input value to formData
                         onChange={(e) => setFormData({...formData, username: e.target.value})}  // Update formData
                     />
@@ -380,14 +382,14 @@ const Users = () => {
                     <input
                         type="password"
                         className="w-full outline-none"
-                        placeholder="Password"
+                        placeholder={t.password}
                         value={formData.password}  // Bind input value to formData
                         onChange={(e) => setFormData({...formData, password: e.target.value})}  // Update formData
                     />
                   </div>
                   {/* Submit Button */}
                   <button className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded w-full">
-                    Submit
+                    {t.submit}
                   </button>
                 </form>
               </div>

@@ -1,169 +1,380 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useAuth } from '../Authentification/AuthContext';
 import Sidebar from '../../Sidebar';
-import {
-  FaCalendar,
-  FaClock,
-  FaMagnifyingGlass,
-  FaXmark,
-  FaAngleLeft,
-  FaAngleRight,
-  FaBars,
-  FaGrip,
-  FaBarcode,
-  FaBoxesStacked,
-} from 'react-icons/fa6';
+import { CgSpinnerAlt } from 'react-icons/cg';
+import { FaMagnifyingGlass, FaSortDown, FaSortUp, FaCalendarDays, FaTruck } from 'react-icons/fa6';
+import { FaXmark } from 'react-icons/fa6';
+import '../../App.css';
+import { useTranslation, lowstockTranslations } from '../TranslationContext';
 
-const Lowstock = () => {
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [showItemOverlay, setShowItemOverlay] = useState(false);
+const LowStock = () => {
+  const { authToken, user } = useAuth();
+  const { language } = useTranslation();
+  const t = lowstockTranslations[language] || lowstockTranslations.en;
+  const [products, setProducts] = useState([]);
+  const [search, setSearch] = useState('');
+  const [sortAsc, setSortAsc] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const toggleOverlay = () => {
-    setShowOverlay(!showOverlay);
+  // shipments
+  const [shipments, setShipments] = useState([]);
+  const [showShipmentsOverlay, setShowShipmentsOverlay] = useState(false);
+  const [showScheduleOverlay, setShowScheduleOverlay] = useState(false);
+  const [scheduleProducts, setScheduleProducts] = useState([]);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [immediate, setImmediate] = useState(false);
+  const [shipAmount, setShipAmount] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [scheduleError, setScheduleError] = useState("");
+  const [shipmentToDelete, setShipmentToDelete] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [store, setStore] = useState({});
+
+  const confirmDelete = async () => {
+    try {
+      await axios.delete(
+          `https://stocksmart.xyz/api/shipments/by-date/${shipmentToDelete.shipment_date}`,  { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      setShowDeleteConfirm(false);
+      setShipmentToDelete(null);
+      setShowShipmentsOverlay(false);
+      fetchShipments();
+    } catch (err) {
+    console.error("Failed to delete shipment:", err);
+    }
   };
 
-  const toggleItemOverlay = () => {
-    setShowItemOverlay(!showItemOverlay);
+  useEffect(() => {
+    fetchProducts();
+    fetchShipments();
+  }, []);
+
+  useEffect(() => {
+    if (!authToken || !user?.store_id) return;
+    axios.get(
+        `https://stocksmart.xyz/api/show/${user.store_id}`,
+        { headers: { Authorization: `Bearer ${authToken}` } }
+        )
+    .then(res => setStore(res.data))
+    .catch(err => console.error("Error fetching store info:", err));
+  }, [authToken, user.store_id]);
+
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get('https://stocksmart.xyz/api/storage', {
+        params: { store_id: user.store_id },
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      if(res.data.success) setProducts(res.data.data);
+    } catch (e) {
+      console.error(e);
+    } finally { setIsLoading(false); }
   };
 
-  const items = [
-    { name: 'Item 1', barcode: '1234567890123', quantity: 10 },
-    { name: 'Item 2', barcode: '2345678901234', quantity: 25 },
-    { name: 'Item 3', barcode: '3456789012345', quantity: 5 },
-    { name: 'Item 4', barcode: '4567890123456', quantity: 8 },
-    { name: 'Item 5', barcode: '5678901234567', quantity: 12 },
-    { name: 'Item 6', barcode: '6789012345678', quantity: 7 },
-    { name: 'Item 1', barcode: '1234567890123', quantity: 10 },
-    { name: 'Item 2', barcode: '2345678901234', quantity: 25 },
-    { name: 'Item 3', barcode: '3456789012345', quantity: 5 },
-    { name: 'Item 4', barcode: '4567890123456', quantity: 8 },
-    { name: 'Item 5', barcode: '5678901234567', quantity: 12 },
-    { name: 'Item 6', barcode: '6789012345678', quantity: 7 },
-    { name: 'Item 1', barcode: '1234567890123', quantity: 10 },
-    { name: 'Item 2', barcode: '2345678901234', quantity: 25 },
-    { name: 'Item 3', barcode: '3456789012345', quantity: 5 },
-    { name: 'Item 4', barcode: '4567890123456', quantity: 8 },
-    { name: 'Item 5', barcode: '5678901234567', quantity: 12 },
-    { name: 'Item 6', barcode: '6789012345678', quantity: 7 },
-  ];
+  const fetchShipments = async () => {
+    try {
+      const res = await axios.get('https://stocksmart.xyz/api/shipments', {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      setShipments(res.data);
+    } catch(e) { console.error(e); }
+  };
+
+  const filtered = products
+      .filter(p => p.product_name.toLowerCase().includes(search.toLowerCase()));
+  const sorted = filtered.sort((a,b) => sortAsc
+      ? a.quantity_in_storage - b.quantity_in_storage
+      : b.quantity_in_storage - a.quantity_in_storage
+  );
+
+  const sortedDates = shipments
+      .map(s => s.shipment_date)    // get all dates (including null)
+      .filter(Boolean)              // drop null/empty
+      .sort();                      // ISO strings sort chronologically
+  const nextShipmentDate = sortedDates.length
+      ? sortedDates[0]
+      : '—';
+
+  // schedule shipment for selected low-stock products
+  const openSchedule = (product) => {
+    setSelectedProduct(product);
+    setShipAmount("");        // reset amount input
+    setScheduleDate("");      // reset date
+    setImmediate(false);
+    setScheduleError("");
+    setShowScheduleOverlay(true);
+  };
+
+  const submitSchedule = async () => {
+    setScheduleError("");
+
+    // Validate product selected
+    if (!selectedProduct) {
+      setScheduleError("No product selected");
+      return;
+    }
+
+    // Validate amount
+    const amt = parseInt(shipAmount, 10);
+    if (isNaN(amt) || amt < 1) {
+      setScheduleError("Enter a valid quantity to ship");
+      return;
+    }
+
+// 1) If not immediate, user must pick a date
+    if (!immediate && !scheduleDate) {
+      setScheduleError('Please select a shipment date or "Immediately"');
+      return;
+    }
+
+// 2) If not immediate, now validate the chosen date
+    if (!immediate) {
+      const today    = new Date().toISOString().split('T')[0];
+      const max      = new Date();
+      max.setDate(max.getDate() + 365);
+      const maxString = max.toISOString().split('T')[0];
+
+      if (scheduleDate <= today) {
+        setScheduleError("Shipment date cannot be in the past or today");
+        return;
+      }
+      if (scheduleDate > maxString) {
+        setScheduleError("Shipment date cannot be more than one year ahead");
+        return;
+      }
+    }
+
+    try {
+      await axios.post(
+          "https://stocksmart.xyz/api/shipments",
+          {
+            shipment_date: immediate ? null : scheduleDate,
+            products: [
+              { id: selectedProduct.id, amount: amt }
+            ]
+          },
+          { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+
+      setShowScheduleOverlay(false);
+      fetchShipments();
+      fetchProducts();
+    } catch (err) {
+      if (err.response?.status === 422) {
+        const msgs = Object.values(err.response.data.errors || {}).flat();
+        setScheduleError(msgs.join(" "));
+      } else {
+        console.error(err);
+        setScheduleError("An unexpected error occurred");
+      }
+    }
+  };
 
   return (
-    <div className="ml-[16.67%] max-sm:ml-0 flex h-screen">
-      <Sidebar />
-      <div className=" w-full bg-[#f8fafe] p-10 -mb-24 h-screen max-sm:w-full max-sm:ml-0">
-        {/* Top Container */}
-        <div className="w-full h-auto flex justify-between items-center mb-4 max-sm:flex-wrap max-sm:justify-center">
-          <div className="flex items-center space-x-4 max-sm:flex-wrap max-sm:justify-center max-sm:sppace-x-0">
-            <div className="flex items-center border border-gray-300 bg-white rounded w-[300px] py-2 px-3 max-sm:w-3/4">
-              <FaMagnifyingGlass className="mr-2 text-[#DF9677]" />
-              <input type="text" className="w-full outline-none" placeholder="Search items" />
+      <div className="ml-[16.67%] max-sm:ml-0 flex min-h-screen flex-col">
+        <Sidebar storeName={store.storename || user.storeName} employeeName={user.name} />
+        <div className="w-full p-8 max-sm:p-4">
+          {/*Top content*/}
+          <div className="w-full flex max-sm:mt-12 max-md:flex-wrap justify-between items-center mb-4 max-md:justify-center">
+            <div
+                className="flex items-center space-x-2 w-full justify-start
+               max-md:flex-wrap max-md:space-x-0 max-md:justify-between
+               max-sm:justify-evenly"
+            >
+              <div
+                  className="flex items-center border border-gray-300 bg-white
+                 rounded w-1/5 py-2 px-3 max-md:w-1/2 max-sm:w-1/2"
+              >
+                <FaMagnifyingGlass className="mr-2 text-[#DF9677]"/>
+                <input
+                type="text"
+                className="w-full outline-none"
+                placeholder={t.searchPlaceholder}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                />
+              </div>
+              <select
+                  className="border border-gray-300 w-1/5 bg-white rounded
+                 py-2 px-3 max-md:w-[46%] max-sm:w-1/2"
+                  value={sortAsc ? 'asc' : 'desc'}
+                  onChange={e => setSortAsc(e.target.value === 'asc')}
+              >
+                <option value="">{t.sortByLabel}</option>
+                <option value="asc">{t.sortAsc}</option>
+                <option value="desc">{t.sortDesc}</option>
+              </select>
             </div>
-            {/* Sort/Filter Options */}
-            <select className="border border-gray-300 bg-white rounded py-2 px-3 max-sm:w-1/3 max-sm:px-0">
-              <option value="">Sort by</option>
-            </select>
-            <select className="border border-gray-300 bg-white rounded py-2 px-3 w-1/3 max-sm:px-0">
-              <option value="">Filter</option>
-            </select>
-            <FaBars className="border border-gray-300 p-3 size-max bg-white text-black max-sm:hidden" />
-            <FaGrip className="border border-gray-300 p-3 bg-white size-max text-black max-sm:hidden" />
-          </div>
-          <button className="bg-[#DF9677] py-2 px-9 text-white font-semibold rounded-lg mr-2 hover:bg-[#DA8460]">
-            Apply
-          </button>
+            <div className="flex items-center max-md:justify-evenly space-x-4 max-md:mt-2 max-md:w-full">
+              <button
+                  className="flex items-center px-2 py-1 bg-[#4E82E4] max-sm:w-1/2 hover:bg-blue-600 transition-all duration-300 text-white rounded"
+                  onClick={() => setShowShipmentsOverlay(true)}
+              >
+                <FaTruck className="w-1/3"/>
+                <p>{t.upcomingShipments}</p>
+              </button>
+              <div className="flex flex-col w-1/2 max-sm:w-1/2">
+              <span className="text-gray-700 flex-col flex font-semibold justify-center items-center">
+      {t.closestLabel}
+                <div className="font-light" > {nextShipmentDate}</div>
+    </span>
+              </div>
+            </div>
         </div>
 
-        {/* Middle Container */}
-        <div className="grid grid-cols-4 gap-4 justify-items-center max-sm:grid-cols-2">
-          {/* Add Supplyment Button */}
-          <div
-            className="border border-gray-300 bg-white shadow-lg rounded-lg p-4 w-full flex flex-col items-center justify-center shadow-[#4E82E4] hover:bg-blue-50 cursor-pointer"
-            onClick={toggleOverlay}
-          >
-            <h1 className="w-20 h-20 text-7xl font-light mb-4 rounded-full flex justify-center items-center">+</h1>
-            <span className="text-lg font-bold">Add Supplyment</span>
-          </div>
 
-          {/* Item Boxes */}
-          {items.map((item, index) => (
-            <div
-              key={index}
-              className="border border-gray-300 bg-white shadow-md rounded-lg p-4 w-full flex flex-col items-center justify-center shadow-gray-300 hover:bg-blue-50 cursor-pointer"
-            >
-              <img src="img.png" alt={item.name} className="w-20 h-20 mb-4" />
-              <h2 className="text-lg font-bold mb-2">{item.name}</h2>
-              <p className="text-sm">Quantity: {item.quantity}</p>
-              <p className="text-sm">Barcode: {item.barcode}</p>
-            </div>
-          ))}
+        {/* Product List */}
+        {isLoading ? (
+            <CgSpinnerAlt className="animate-spin text-3xl"/>
+        ) : (
+            <ul className="space-y-2">
+              {sorted.map(p => (
+                  <li key={p.id} className="flex items-center justify-between border p-2 rounded">
+                    <div className="flex items-center space-x-4">
+                    <img src={p.image ? `https://stocksmart.xyz/backend/public/${p.image}` : 'noimage.png'}
+                             alt={p.product_name} className="w-16 h-16 rounded-lg object-cover"/>
+                        <div>
+                          <div className="font-bold">{p.product_name}</div>
+                          <div>{t.instorage}{p.quantity_in_storage}</div>
+                          <div className="text-sm text-gray-600">{t.nextshipments} {p.next_shipments?.join(', ') || t.none }</div>
+                        </div>
+                      </div>
+                      <button className="bg-[#4E82E4] hover:bg-blue-600 transition-all duration-300 text-white px-3 py-1 rounded" onClick={() => openSchedule(p)}>{t.scheduleButton}</button>
+                    </li>
+                ))}
+              </ul>
+          )}
+
+          {/* Shipments Overlay */}
+          {showShipmentsOverlay && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                   onClick={() => setShowShipmentsOverlay(false)}>
+                <div className="bg-white p-6 rounded w-96 relative" onClick={e => e.stopPropagation()}>
+                  <FaXmark className="absolute top-2 right-2 cursor-pointer"
+                           onClick={() => setShowShipmentsOverlay(false)}/>
+                  <h2 className="text-xl font-bold mb-4">{t.upcomingShipments}</h2>
+                  <ul className="space-y-2 max-h-64 overflow-y-auto">
+                    {(() => {
+                      // 1) filter to dated shipments, 2) group by date, merging products arrays
+                      const groups = shipments
+                          .filter(s => s.shipment_date)
+                          .reduce((acc, s) => {
+                            if (!acc[s.shipment_date]) acc[s.shipment_date] = [];
+                            // each s.products has {product_name, amount}
+                            acc[s.shipment_date].push(...s.products);
+                            return acc;
+                          }, {});
+
+                      // 3) render one <li> per date, combining products
+                      return Object.entries(groups).map(([date, prods]) => (
+                          <li key={date} className="flex justify-between items-start border p-2 rounded">
+                            <div>
+                              <div className="font-semibold">{date}</div>
+                              <div className="text-sm">
+                                Products:&nbsp;
+                                {prods
+                                    .map((pr, i) => `${pr.product_name} (${pr.amount})`)
+                                    .join('; ')
+                                }
+                              </div>
+                            </div>
+                            <button
+                                className="text-red-500 hover:underline"
+                                onClick={() => {
+                                  // now date is the group key, reuse your delete flow if needed
+                                  setShipmentToDelete({shipment_date: date});
+                                  setShowDeleteConfirm(true);
+                                }}
+                            >
+                              {t.cancelButton}
+                            </button>
+                          </li>
+                      ));
+                    })()}
+                  </ul>
+                </div>
+              </div>
+          )}
+
+          {showDeleteConfirm && (
+              <div
+                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                  onClick={() => setShowDeleteConfirm(false)}
+              >
+                <div
+                    className="bg-white p-6 rounded-lg w-80"
+                    onClick={e => e.stopPropagation()}
+                >
+                  <p className="mb-4">
+                    {t.deleteShipmentConfirm}{" "}
+                    <strong>{shipmentToDelete?.shipment_date}</strong>?
+                  </p>
+                  <div className="flex justify-end space-x-2">
+                    <button
+                        className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400"
+                        onClick={() => setShowDeleteConfirm(false)}
+                    >
+                      {t.cancelButton}
+                    </button>
+                    <button
+                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                        onClick={confirmDelete}
+                    >
+                      {t.saveButton}
+                    </button>
+                  </div>
+                </div>
+              </div>
+          )}
+
+          {/* Schedule Overlay */}
+          {showScheduleOverlay && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                   onClick={() => setShowScheduleOverlay(false)}>
+                <div className="bg-white p-6 rounded w-96 relative" onClick={e => e.stopPropagation()}>
+                  <FaXmark className="absolute top-2 right-2 cursor-pointer"
+                           onClick={() => setShowScheduleOverlay(false)}/>
+                  <h2 className="text-xl font-bold mb-4">{t.scheduleTitle} {selectedProduct?.product_name}</h2>
+                  <div className="mb-4">
+                    <label className="block mb-1 font-medium">{t.amountLabel}</label>
+                    <input
+                        type="number"
+                        min="1"
+                        className="w-full border p-2 rounded"
+                        value={shipAmount}
+                        onChange={e => setShipAmount(e.target.value)}
+                        placeholder="Enter quantity"
+                    />
+                  </div>
+                  <div className="flex items-center mb-2 mt-4  space-x-2">
+                    <label>
+                      <input type="checkbox" checked={immediate} onChange={() => setImmediate(!immediate)}/>{t.immediatelyLabel}
+                    </label>
+                  </div>
+                  {!immediate && (
+                      <input
+                          type="date"
+                          className="border p-2 rounded w-full mb-4"
+                          value={scheduleDate}
+                          onChange={e => setScheduleDate(e.target.value)}
+                      />
+                  )}
+                  <button
+                      className="bg-blue-500 text-white px-4 py-2 rounded"
+                      onClick={submitSchedule}
+                  >
+                    {t.saveButton}
+                  </button>
+                  {scheduleError && (
+                      <p className="text-red-500 mb-2">{scheduleError}</p>
+                  )}
+                </div>
+              </div>
+          )}
         </div>
       </div>
-
-      {/* Supplyment Overlay */}
-      {showOverlay && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="relative bg-white p-8 w-2/4 h-1/3 flex flex-col justify-center rounded-lg shadow-lg space-y-4 max-sm:w-full">
-            <FaXmark className="w-5 text-[#4E82E4] absolute top-4 right-4 cursor-pointer" onClick={toggleOverlay} />
-            <h2 className="text-xl text-[#4E82E4] font-bold text-center">Add Supplyment</h2>
-
-            <form className="space-y-4">
-              {/* Supplyment Date Input */}
-              <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
-                <FaCalendar className="text-[#4E82E4] mr-2" />
-                <input type="date" className="w-full outline-none" />
-              </div>
-
-              {/* Time of Delivery Input */}
-              <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
-                <FaClock className="text-[#4E82E4] mr-2" />
-                <input type="time" className="w-full outline-none" />
-              </div>
-
-              {/* Add Items Button */}
-              <button
-                type="button"
-                className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded w-full"
-                onClick={toggleItemOverlay}
-              >
-                Add Items
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Item Entry Overlay */}
-      {showItemOverlay && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="relative bg-white p-8 w-1/3 h-1/3 rounded-lg shadow-lg space-y-4">
-            <FaXmark className="w-5 text-[#4E82E4] absolute top-4 right-4 cursor-pointer" onClick={toggleItemOverlay} />
-            <h2 className="text-xl text-[#4E82E4] font-bold text-center">Add Item</h2>
-
-            <form className="space-y-4">
-              {/* Barcode Input */}
-              <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
-                <FaBarcode className="text-[#4E82E4] mr-2" />
-                <input type="text" className="w-full outline-none" placeholder="Barcode" maxLength="13" />
-              </div>
-
-              {/* Quantity Input */}
-              <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
-                <FaBoxesStacked className="text-[#4E82E4] mr-2" />
-                <input type="text" className="w-full outline-none" placeholder="Quantity" />
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded w-full"
-              >
-                Submit
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
   );
 };
 
-export default Lowstock;
+export default LowStock;

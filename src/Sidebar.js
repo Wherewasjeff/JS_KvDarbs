@@ -11,7 +11,8 @@ import {
     FaBars,
     FaPen,
     FaLanguage,
-    FaXmark
+    FaXmark,
+    FaMoneyBill
 } from 'react-icons/fa6';
 import { CgSpinnerAlt } from "react-icons/cg";
 import { BiSolidExit } from 'react-icons/bi';
@@ -71,6 +72,13 @@ const Sidebar = ({ employeeName, storeName }) => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [isProfileOverlayOpen, setProfileOverlayOpen] = useState(false);
     const [language, setLanguage] = useState(localStorage.getItem('language') || 'en');
+    const [currency, setCurrency] = useState(localStorage.getItem('currency') || 'USD');
+    const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
+    const handleCurrencyChange = (newCurr) => {
+        setCurrency(newCurr);
+        localStorage.setItem('currency', newCurr);
+        setCurrencyDropdownOpen(false);
+    };
     const [username, setUsername] = useState("");
     const [isChangingLanguage, setIsChangingLanguage] = useState(false);
     const isStoreLoading = !storeName;
@@ -98,38 +106,39 @@ const Sidebar = ({ employeeName, storeName }) => {
         }, 1000);
     };
 
-    const handleProfileSave = async (e) => {
+    const handleProfileSave = async e => {
         e.preventDefault();
         try {
             const authToken = localStorage.getItem('authToken');
-            if (!authToken) {
-                alert('Authorization token not found. Please log in again.');
-                return;
-            }
-            const response = await axios.put(
+            const { data } = await axios.put(
                 `https://stocksmart.xyz/api/user/${user.id}`,
                 editableUserInfo,
                 { headers: { Authorization: `Bearer ${authToken}` } }
             );
-            setUser(response.data);
+            setUser(data);
             setProfileOverlayOpen(false);
-            alert('Profile updated successfully!');
-        } catch (error) {
-            console.error('Error updating profile:', error);
-            alert('Failed to update profile.');
+        } catch (err) {
+            console.error('422 payload errors:', err.response?.data);
         }
     };
 
     const fetchUserData = async () => {
         try {
-            const response = await axios.get(`https://stocksmart.xyz/api/user/${user.id}`);
+            const authToken = localStorage.getItem("authToken");
+            const { data } = await axios.get(
+                `https://stocksmart.xyz/api/user/${user.id}`,
+                { headers: { Authorization: `Bearer ${authToken}` } }
+            );
             setEditableUserInfo({
-                name: response.data.name,
-                last_name: response.data.last_name,
-                email: response.data.email
+                name: data.name,
+                last_name: data.last_name,
+                email: data.email,
             });
-        } catch (error) {
-            console.error('Error fetching user data:', error);
+            setFirstName(data.name);
+            setLastName(data.last_name);
+            setEmail(data.email);
+        } catch (e) {
+            console.error("Error fetching user data:", e);
         }
     };
 
@@ -138,6 +147,16 @@ const Sidebar = ({ employeeName, storeName }) => {
             setSidebarLoading(false);
         }
     }, [storeName, employeeName]);
+
+    useEffect(() => {
+        if (isProfileOverlayOpen) {
+            fetchUserData();
+        }
+    }, [isProfileOverlayOpen]);
+
+    useEffect(() => {
+        fetchUserData();
+    }, []);
 
     return (
         <>
@@ -321,19 +340,28 @@ const Sidebar = ({ employeeName, storeName }) => {
                                 )}
                             </button>
                         </Link>
-                        <div className="w-full flex justify-center transition-all duration-300">
+                        <div className="w-full flex justify-center space-x-4 transition-all duration-300">
                             <button
                                 className="bg-[#4E82E4] text-white flex items-center px-4 py-4 rounded-lg shadow-md transition-all duration-300 hover:bg-[#6a9aec]"
                                 onClick={toggleDropdown}
                             >
-                                <FaLanguage className="scale-125 transition-all duration-300" />
+                                <FaLanguage className="scale-125 transition-all duration-300"/>
+                            </button>
+                            <button
+                                className="bg-[#4E82E4] text-white flex items-center px-4 py-4 rounded-lg shadow-md transition-all duration-300 hover:bg-[#6a9aec]"
+                                onClick={() => setCurrencyDropdownOpen(o => !o)}
+                            >
+                                <FaMoneyBill className="scale-125 transition-all duration-300"/>
                             </button>
                         </div>
                     </div>
                     {dropdownOpen && (
-                        <div className="mt-2 transform bg-white shadow-lg shadow-gray-500 rounded-lg w-1/2 transition-all duration-300">
-                            <div className="flex items-center cursor-pointer p-2 hover:bg-gray-200 transition-all duration-300" onClick={() => handleLanguageChange('en')}>
-                                <img src="/Flags/Uk.png" alt="English" className="h-5 w-5 mr-2 transition-all duration-300" />
+                        <div
+                            className="mt-2 transform bg-white shadow-lg shadow-gray-500 rounded-lg w-1/2 transition-all duration-300">
+                            <div
+                                className="flex items-center cursor-pointer p-2 hover:bg-gray-200 transition-all duration-300"
+                                onClick={() => handleLanguageChange('en')}>
+                            <img src="/Flags/Uk.png" alt="English" className="h-5 w-5 mr-2 transition-all duration-300" />
                                 <span>English</span>
                             </div>
                             <div className="flex items-center cursor-pointer p-2 hover:bg-gray-200 transition-all duration-300" onClick={() => handleLanguageChange('lv')}>
@@ -342,6 +370,28 @@ const Sidebar = ({ employeeName, storeName }) => {
                             </div>
                         </div>
                     )}
+                {currencyDropdownOpen && (
+                    <div className="mt-2 transform bg-white shadow-lg rounded-lg w-1/2 transition-all duration-300">
+                    {['USD','$','EUR','€','GBP','£'].reduce((acc, curr, i, arr) => {
+                        // flatten ['USD','$','EUR','€',...] into pairs
+                    if (i % 2 === 0) {
+                        const code = arr[i];
+                        const symbol = arr[i+1];
+                        acc.push(
+                            <div
+                                key={code}
+                        className="flex items-center cursor-pointer p-2 hover:bg-gray-200"
+                        onClick={() => handleCurrencyChange(code)}
+                        >
+                        <span className="mr-2">{symbol}</span>
+                        <span>{code}</span>
+                        </div>
+                        );
+                        }
+                    return acc;
+                    }, [])}
+                    </div>
+                )}
                 </div>
 
 
@@ -458,6 +508,12 @@ const Sidebar = ({ employeeName, storeName }) => {
                             >
                                 <FaLanguage className="w-6 mb-1 transition-all duration-300"/>
                                 {sidebartranslations[language].language}
+                            </button>
+                            <button
+                                className="w-full text-white bg-[#4E82E4] text-sm flex flex-col justify-center items-center py-4 rounded-lg shadow-md transition-all duration-300 hover:bg-[#6a9aec]"
+                                onClick={toggleDropdown}
+                            >
+                                <FaMoneyBill className="transition-all h-[40px] w-full duration-300"/>
                             </button>
                         </div>
                     </div>

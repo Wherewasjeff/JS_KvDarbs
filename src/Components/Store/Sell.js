@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../Sidebar';
+import {Link, useNavigate} from "react-router-dom";
 import axios from 'axios';
 import '../../App.css';
+import { useTranslation, saleTranslations } from "../TranslationContext";
 import {
   FaCalendar,
   FaDollarSign,
@@ -16,9 +18,13 @@ import { CgSpinnerAlt } from "react-icons/cg";
 import { useAuth } from "../Authentification/AuthContext";
 
 const Selling = () => {
+  const { language } = useTranslation();
+  const translations = saleTranslations[language] || saleTranslations.en;
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [totalDiscount, setTotalDiscount] = useState({ percent: 0, reason: '' })
+  const navigate = useNavigate();
   const [items, setItems] = useState([]); // For storing selected items in the cart
-  const { user, setUser, authToken } = useAuth();
+  const { user, setUser, authToken, } = useAuth();
   const [store, setStore] = useState({});
   const [loading, setLoading] = useState(false);  // For loading state
   const [showHistory, setShowHistory] = useState(false); // Toggles history overlay
@@ -27,6 +33,15 @@ const Selling = () => {
   const [products, setProducts] = useState([]);   // For storing fetched products
   const [barcodeInput, setBarcodeInput] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [currencySymbol, setCurrencySymbol] = useState('€');
+  useEffect(() => {
+    const storedCurrency = localStorage.getItem('currency') || 'EUR';
+    setCurrencySymbol({
+      'EUR': '€',
+      'GBP': '£',
+      'USD': '$'
+    }[storedCurrency]);
+  }, []);
 
   // Filter products based on barcode, product name (and SKU)
   const filteredProducts = products.filter(product =>
@@ -34,7 +49,7 @@ const Selling = () => {
       product.product_name.toLowerCase().includes(barcodeInput.toLowerCase()) ||
       (product.sku && product.sku.toLowerCase().includes(barcodeInput.toLowerCase()))
   );
-
+  const locale = language === 'lv' ? 'lv-LV' : 'en-US';
   // Limit suggestions to top 3 products
   const topProducts = filteredProducts
       .filter(product =>
@@ -47,6 +62,14 @@ const Selling = () => {
     setBarcodeInput(e.target.value);
     setSelectedProduct(null); // Reset selected product when typing
   };
+// at top of Selling component:
+  const [discountModal, setDiscountModal] = useState({
+    open: false,
+    target: 'line',    // 'line' or 'total'
+    lineId: null,      // item.id if per-item
+    percent: '',
+    reason: ''
+  });
 
   // Update clock every second
   useEffect(() => {
@@ -57,17 +80,20 @@ const Selling = () => {
   }, []);
 
   const formatTime = (time) => (time < 10 ? `0${time}` : time);
-  const formatDate = (date) => {
-    const options = { weekday: 'long', month: 'long', day: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
-  };
+  const formatDate = date =>
+      date.toLocaleDateString(locale, { weekday:'long', month:'long', day:'numeric' });
 
   const hours = formatTime(currentTime.getHours());
   const minutes = formatTime(currentTime.getMinutes());
   const seconds = formatTime(currentTime.getSeconds());
 
   // Calculate total price (with quantity)
-  const total = items.reduce((acc, item) => acc + item.price * (item.quantity || 1), 0);
+  const total = items.reduce((acc, item) => {
+    const unitPrice = item.discounted_price != null
+        ? item.discounted_price
+        : item.price;
+    return acc + unitPrice * item.quantity;
+  }, 0);
 
   // Remove item from the cart
   const removeItem = (itemId) => {
@@ -199,8 +225,13 @@ const Selling = () => {
         store_id: user.store_id,
         items: items.map(i => ({
           product_id: i.id,
-          sold: i.quantity
-        }))
+          sold: i.quantity,
+          discount_percent: i.discount_percent || undefined,
+          discount_reason:  i.discount_reason  || undefined
+        })),
+        total_discount: totalDiscount.percent
+            ? { percent: totalDiscount.percent, reason: totalDiscount.reason }
+            : undefined
       };
 
       await axios.post(
@@ -221,6 +252,7 @@ const Selling = () => {
   };
 
   return (
+      <>
       <div className="flex h-screen w-5/6 ml-[16.67%] max-xl:w-full max-xl:ml-0 transition-all duration-300">
         {loading && (
             <div className="fixed inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 z-50">
@@ -233,7 +265,7 @@ const Selling = () => {
         {/* History Overlay */}
         {showHistory && (
             <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-              <div className="relative bg-white p-4 w-3/4 h-3/4 rounded-lg shadow-lg overflow-y-scroll overflow-x-hidden">
+              <div className="relative bg-white max-sm:w-11/12 p-4 w-3/4 h-3/4 rounded-lg shadow-lg overflow-y-scroll overflow-x-hidden">
                 <FaXmark
                     className="absolute top-4 right-4 text-gray-700 cursor-pointer"
                     onClick={() => setShowHistory(false)}
@@ -244,7 +276,7 @@ const Selling = () => {
                     </div>
                 ) : (
                     history.length === 0 ? (
-                        <div className="text-center text-gray-500 mt-8">No sales to show</div>
+                        <div className="text-center text-gray-500 mt-8">{translations.noSales}</div>
                     ) : (
                         // group by date
                         Object.entries(
@@ -255,22 +287,78 @@ const Selling = () => {
                         ).map(([date, salesOnDate]) => (
                             <div key={date} className="mb-6">
                               <div className="w-full h-8 border-b-2 mb-6 font-semibold text-gray-600">
-                                {new Date(date).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}
+                                {formatDate(new Date(date))}
                               </div>
-                              {salesOnDate.map(sale => (
-                                  <div key={sale.id} className="flex justify-between p-3 shadow-md shadow-gray-400 rounded-lg my-2">
-                                    <div>
-                                      <span className="font-semibold">{sale.seller_name}</span>:&nbsp;
-                                      <span>{sale.product_name}</span> ${sale.price.toFixed(2)} × {sale.sold}
+                              {(() => {
+                                // group by time+seller
+                                const bySellerAndTime = Object.values(
+                                    salesOnDate.reduce((acc, sale) => {
+                                      const key = `${sale.time}|${sale.seller_name}`;
+                                      if (!acc[key]) {
+                                        acc[key] = {
+                                          seller_name: sale.seller_name,
+                                          time: sale.time,
+                                          items: [],
+                                        };
+                                      }
+                                      acc[key].items.push(sale);
+                                      return acc;
+                                    }, {})
+                                );
+
+                                return bySellerAndTime.map((group, idx) => (
+                                    <div key={idx} className="mb-4 p-3 bg-gray-50 rounded-lg shadow-md">
+                                      {/* Seller & Time header */}
+                                      <div className="flex justify-between mb-2">
+                                        <span className="font-semibold">{group.seller_name}</span>
+                                        <span className="text-sm text-gray-500">{group.time}</span>
+                                      </div>
+                                      {/* List each product */}
+                                      {group.items.map(item => (
+                                          <div key={item.id} className="flex justify-between py-1">
+                                            <div>
+                                              {item.product_name} × {item.sold}
+                                            </div>
+                                            <div className="text-right">
+                                              {item.discount_percent
+                                                  ? (
+                                                      <>
+                                                        {/* original total */}
+                                                        <div>
+              <span className="line-through text-gray-500">
+                {currencySymbol}{((item.price / (1 - item.discount_percent / 100)) * item.sold).toFixed(2)}
+              </span>{' '}
+                                                          <span>${(item.price * item.sold).toFixed(2)}</span>
+                                                        </div>
+                                                        {/* discount details */}
+                                                        <div className="text-sm text-gray-500">
+                                                          {item.discount_percent}% {translations.off} {item.discount_reason}
+                                                        </div>
+                                                      </>
+                                                  )
+                                                  : <span>{currencySymbol}{(item.price * item.sold).toFixed(2)}</span>
+                                              }
+                                            </div>
+                                          </div>
+                                      ))}
+                                      {/* Sub-total for this group */}
+                                      <div className="mt-2 space-y-1">
+                                        <div className="flex justify-end font-bold">
+                                          {translations.total} {currencySymbol}{group.items.reduce((sum, s) => sum + s.price * s.sold, 0).toFixed(2)}
+                                        </div>
+                                        {/* only show if there *was* a total‐level discount applied */}
+                                        {group.items[0].total_discount_percent && (
+                                            <div className="flex justify-end text-sm text-gray-500">
+                                              {group.items[0].total_discount_percent}% {translations.offTotal}
+                                              — {group.items[0].total_discount_reason}
+                                            </div>
+                                        )}
+                                      </div>
                                     </div>
-                                    <div>
-                                      <span className="font-semibold">${(sale.price * sale.sold).toFixed(2)}</span>
-                                      <span className="ml-4 text-sm text-gray-500">{sale.time}</span>
-                                    </div>
-                                  </div>
-                              ))}
+                                ));
+                              })()}
                               <div className="flex justify-end font-bold mt-2">
-                                Total: ${salesOnDate.reduce((sum, s) => sum + s.price * s.sold, 0).toFixed(2)}
+                                {translations.total} {currencySymbol}{salesOnDate.reduce((sum, s) => sum + s.price * s.sold, 0).toFixed(2)}
                               </div>
                             </div>
                         ))
@@ -302,75 +390,112 @@ const Selling = () => {
 
             {/* Items Container */}
             <div className="w-3/4 bg-white shadow-lg rounded-lg p-4 max-sm:px-1 space-y-4 flex flex-col max-xl:w-full max-xl:flex-grow transition-all duration-300">
-              <h2 className="text-lg font-bold text-[#4E82E4] transition-all duration-300">Items List</h2>
+              <h2 className="text-lg font-bold text-[#4E82E4] transition-all duration-300">{translations.itemsList}</h2>
               {/* Scrollable Items List */}
               <div className="flex-grow border border-gray-300 p-4 rounded-lg overflow-y-scroll space-y-4 transition-all duration-300 max-xl:p-1">
-                {items.map((item) => (
-                    <div
-                        key={item.id}
-                        className={`relative flex justify-between items-center bg-gray-50 rounded-lg shadow-md transition-all duration-300 ${
-                            item.quantity_in_salesfloor === 0 ? 'opacity-50' : ''
-                        }`}
-                    >
-                      {item.quantity_in_salesfloor === 0 && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg pointer-events-none">
-                            <span className="text-red-500 font-semibold">Insufficient quantity</span>
-                          </div>
-                      )}
-                      {/* Item Image */}
-                      <div className="w-14 h-14 max-sm:w-10 max-sm:h-10 max-sm:mr-1 flex justify-center items-center rounded max-xl:max-w-1/2 object-cover max-xl:max-h-full transition-all duration-300">
-                        {item.image ? (
-                            <img
-                                src={item.image ? `https://stocksmart.xyz/backend/public/${item.image}` : '/noimage.png'}
-                                alt={item.product_name}
-                                className="w-12 h-12 object-cover rounded transition-all duration-300"
-                            />
-                        ) : (
-                            <div className="w-full h-full bg-gray-300 m-2 flex items-center justify-center text-white transition-all duration-300">
-                              Loading...
+                {items.map(item => (
+                    <React.Fragment key={item.id}>
+                      <div
+                          className={`relative flex justify-between items-center bg-gray-50 rounded-lg shadow-md transition-all duration-300
+                          ${item.quantity_in_salesfloor === 0 ? 'opacity-50' : ''}
+                        `}
+                      >
+                        {item.quantity_in_salesfloor === 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg pointer-events-none">
+                              <span className="text-red-500 font-semibold">{translations.insufficientQuantity}</span>
                             </div>
                         )}
-                      </div>
-                      {/* Item Name and Barcode */}
-                      <div className="flex flex-col transition-all duration-300">
-                        <p className="font-semibold max-sm:text-xs">{item.product_name}</p>
-                        <p className="text-sm text-gray-500 max-sm:text-xs">Barcode: {item.barcode}</p>
-                      </div>
-                      {/* Quantity, Price, Edit, and Delete */}
-                      <div className="flex items-center space-x-4 max-xl:space-x-2 max-xl:justify-between transition-all duration-300">
-                        <div className="flex justify-center items-center space-x-2 max-md:flex-col max-md:space-x-0">
-                          <p className={`${item.quantity >= item.quantity_in_salesfloor ? 'text-red-500' : 'text-[#4E82E4]'} responsive-text`}>QTY:</p>
-                          <input
-                              type="number"
-                              min="1"
-                              max={item.quantity_in_salesfloor}
-                              value={item.quantity}
-                              onChange={e => handleQuantityChange(e, item.id)}
-                              className="bg-white border rounded px-2 py-1 w-12 text-center"
-                              disabled={item.quantity_in_salesfloor === 0}
-                          />
-                          <span className="font-semibold max-sm:w-16 text-[#4E82E4] flex justify-center max-xl:ml-3 transition-all duration-300 responsive-text truncate">
-          $ {parseFloat(item.price).toFixed(2)}
-        </span>
+
+                        {/* Item Image */}
+                        <div className="w-14 h-14 flex-shrink-0 flex justify-center items-center rounded">
+                          {item.image
+                              ? <img
+                                  src={`https://stocksmart.xyz/backend/public/${item.image}`}
+                                  alt={item.product_name}
+                                  className="w-12 h-12 object-cover rounded"
+                              />
+                              : <div className="w-full h-full bg-gray-300 m-2 flex items-center justify-center text-white">
+                                Loading…
+                              </div>
+                          }
                         </div>
-                        <div className="flex h-14">
+
+                        {/* Name & Barcode */}
+                        <div className="flex flex-col flex-grow px-2">
+                          <span className="font-semibold">{item.product_name}</span>
+                          <span className="text-sm text-gray-500">{translations.barcodeLabel} {item.barcode}</span>
+                        </div>
+
+                        {/* Quantity + Price */}
+                        <div className="flex items-center space-x-4 flex-shrink-0">
+                          <div className="flex items-center space-x-2">
+          <span className={item.quantity >= item.quantity_in_salesfloor ? 'text-red-500' : 'text-[#4E82E4]'}>
+            {translations.quantity}
+          </span>
+                            <input
+                                type="number"
+                                min="1"
+                                max={item.quantity_in_salesfloor}
+                                value={item.quantity}
+                                onChange={e => handleQuantityChange(e, item.id)}
+                                className="bg-white border rounded w-12 text-center"
+                                disabled={item.quantity_in_salesfloor === 0}
+                            />
+                          </div>
+
+                          {item.discount_percent ? (
+                              <div className="text-right">
+            <span className="line-through text-gray-500">
+              {currencySymbol}{item.price.toFixed(2)}
+            </span>
+                                <span className="ml-1 font-bold text-green-600">
+              {currencySymbol}{item.discounted_price.toFixed(2)}
+            </span>
+                              </div>
+                          ) : (
+                              <span className="font-semibold">
+            {currencySymbol}{item.price.toFixed(2)}
+          </span>
+                          )}
+                        </div>
+
+                        {/* Edit & Delete Buttons */}
+                        <div className="flex ml-2">
                           <FaPen
-                              className="peer p-3 h-14 text-gray-500 flex justify-center items-center w-10 border-l border-gray-200 cursor-pointer hover:border-[#4E82E4] hover:bg-blue-200 hover:text-[#4E82E4] transition-all duration-300"
+                              className="p-2 w-8 h-8 text-gray-500 hover:text-[#4E82E4] cursor-pointer"
+                              onClick={() => setDiscountModal({
+                                open: true,
+                                target: 'line',
+                                lineId: item.id,
+                                percent: item.discount_percent || '',
+                                reason: item.discount_reason || ''
+                              })}
                               disabled={item.quantity_in_salesfloor === 0}
                           />
                           <FaTrashCan
-                              className="p-3 h-14 text-gray-500 flex justify-center items-center w-10 rounded-r border-l border-gray-200 cursor-pointer peer-hover:border-[#4E82E4] hover:border-red-600 hover:bg-red-200 hover:text-red-600 transition-all duration-300 z-10"
+                              className="p-2 w-8 h-8 text-gray-500 hover:text-red-600 cursor-pointer"
                               onClick={() => removeItem(item.id)}
                           />
                         </div>
                       </div>
-                    </div>
+                    </React.Fragment>
                 ))}
               </div>
               {/* Total Row */}
-              <div className="flex justify-between items-center border-t border-gray-300 pt-2 my-2 transition-all duration-300 max-xl:mt-0 max-xl:pt-0">
-                <span className="font-bold text-2xl">Total:</span>
-                <span className="font-bold text-2xl">${total.toFixed(2)}</span>
+              <div className="flex justify-center items-center space-x-10">
+                <span className="font-bold text-2xl">{translations.total}</span>
+                {totalDiscount.percent ? (
+                    <div className="text-right">
+      <span className="line-through text-gray-500 text-2xl">
+        {currencySymbol}{total.toFixed(2)}
+      </span>
+                      <span className="ml-2 font-bold text-2xl text-green-600">
+        {currencySymbol}{(total * (1 - totalDiscount.percent / 100)).toFixed(2)}
+      </span>
+                    </div>
+                ) : (
+                    <span className="font-bold text-2xl">{currencySymbol}{total.toFixed(2)}</span>
+                )}
               </div>
             </div>
 
@@ -404,26 +529,49 @@ const Selling = () => {
                   onClick={handleCheckout}
                   disabled={items.length === 0 || items.some(item => item.quantity_in_salesfloor === 0)}
               >
-                Checkout
+                {translations.checkout}
               </button>
-              <button
-                  className={`bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 mb-4 rounded transition-all duration-300 max-xl:m-0 ${
-                      items.length === 0 ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                  disabled={items.length === 0}
-              >
-                Discounts
-              </button>
+              { totalDiscount.percent
+                  ? <div className="flex items-center justify-between mb-4 py-2 space-x-2">
+      <span>
+        Discount applied: {totalDiscount.percent}%&nbsp;
+        {totalDiscount.reason && ` Reason: ${totalDiscount.reason}`}
+      </span>
+                    <button
+                        className="bg-red-400 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded transition-all duration-300"
+                        onClick={() => setTotalDiscount({ percent: 0, reason: '' })}
+                    >
+                      {translations.cancel}
+                    </button>
+                  </div>
+                  : <button
+                      className={`bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold mb-4 py-2 px-4 rounded ${
+                          (items.length === 0 || items.some(item => item.quantity_in_salesfloor === 0))
+                              ? 'opacity-50 cursor-not-allowed'
+                              : ''
+                      }`}
+                      onClick={() => setDiscountModal({
+                        open: true,
+                        target: 'total',
+                        lineId: null,
+                        percent: totalDiscount.percent,
+                        reason: totalDiscount.reason
+                      })}
+                      disabled={items.length === 0 || items.some(item => item.quantity_in_salesfloor === 0)}
+                  >
+                    {translations.discounts}
+                  </button>
+              }
               <button
                   className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 mb-4 rounded transition-all duration-300 max-xl:m-0"
                   onClick={() => setShowHistory(true)}
               >
-                History
+                {translations.history}
               </button>
               <button
-                  className="bg-[#DF9677] hover:bg-red-600 text-white font-semibold py-2 px-4 rounded transition-all duration-300"
+                  className="bg-[#DF9677] hover:bg-red-600 text-white font-semibold py-2 px-4 rounded transition-all duration-300" onClick={() => window.location.href = "/storestatus"}
               >
-                Cancel
+                {translations.cancel}
               </button>
             </div>
           </div>
@@ -474,7 +622,7 @@ const Selling = () => {
             <input
                 type="text"
                 className="w-full outline-none transition-all duration-300"
-                placeholder="Enter Barcode or name"
+                placeholder={translations.barcodePlaceholder}
                 maxLength="13"
                 value={barcodeInput}
                 onChange={handleBarcodeChange}
@@ -484,11 +632,72 @@ const Selling = () => {
                 className="bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-1 px-4 rounded max-xl:px-3 max-xl:w-2/5 max-xl:h-full max-xl:m-0 transition-all duration-300"
                 onClick={handleAddItem}
             >
-              Add
+              {translations.add}
             </button>
           </div>
         </div>
+        {discountModal.open && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+              <div className="bg-white p-6 rounded-lg w-80">
+                <div className="flex items-center justify-between w-full transition-all duration-300 mb-4">
+                  <h2 className="text-lg font-bold">
+                    {translations.applyDiscountFor} {discountModal.target === 'total'
+                      ? 'total'
+                      : items.find(i => i.id === discountModal.lineId)?.product_name}
+                  </h2>
+                  <FaXmark
+                      className="text-gray-700 cursor-pointer"
+                      onClick={() => setDiscountModal(false)}
+                  />
+                </div>
+                <label className="block mb-2">
+                  {translations.discountPercent}
+                  <input
+                      type="number"
+                      min="0" max="100"
+                      value={discountModal.percent}
+                      onChange={e => setDiscountModal(dm => ({...dm, percent: e.target.value}))}
+                      className="border w-full px-2 py-1"
+                  />
+                </label>
+                <label className="block mb-4">
+                  {translations.reason}
+                  <input
+                      type="text"
+                      value={discountModal.reason}
+                      onChange={e => setDiscountModal(dm => ({...dm, reason: e.target.value}))}
+                      className="border w-full px-2 py-1"
+                  />
+                </label>
+                <button
+                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                    onClick={() => {
+                      if (discountModal.target === 'line') {
+                        setItems(prev => prev.map(i => i.id === discountModal.lineId
+                            ? {
+                              ...i,
+                              discount_percent: parseFloat(discountModal.percent),
+                              discount_reason: discountModal.reason,
+                              discounted_price: parseFloat((i.price * (1 - discountModal.percent / 100)).toFixed(2))
+                            }
+                            : i
+                        ));
+                      } else {
+                        setTotalDiscount({
+                          percent: parseFloat(discountModal.percent),
+                          reason: discountModal.reason
+                        });
+                      }
+                      setDiscountModal(dm => ({...dm, open: false}));
+                    }}
+                >
+                  {translations.apply}
+                </button>
+              </div>
+            </div>
+        )}
       </div>
+      </>
   );
 };
 

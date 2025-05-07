@@ -11,7 +11,6 @@ import {
     FaStore,
     FaBarcode,
     FaPen,
-    FaDollarSign,
     FaMagnifyingGlass,
     FaBoxesPacking,
     FaXmark,
@@ -22,7 +21,8 @@ import {
     FaUsers,
     FaCheck
 } from 'react-icons/fa6';
-import { CgSpinnerAlt } from "react-icons/cg";
+import { IoMdPricetag } from "react-icons/io";
+import { CgSpinnerAlt, CgDisplayFullwidth, CgDisplaySpacing, CgInbox } from "react-icons/cg";
 const AddStorage = () => {
     const { authToken } = useAuth();
     const { user, setUser } = useAuth();
@@ -52,6 +52,7 @@ const AddStorage = () => {
     const navigate = useNavigate();
     const [isSearching, setIsSearching] = useState(false);
     const [imagePreview, setImagePreview] = useState('');
+    const [submissionErrors, setSubmissionErrors] = useState({});
 
     const filteredProducts = selectedCategory
         ? products.filter(product => product.category_id === Number(selectedCategory))
@@ -93,7 +94,6 @@ const AddStorage = () => {
                 return 0;
         }
     });
-
     const searchedProducts = sortedProducts.filter(product =>
         product.product_name
             .toLowerCase()
@@ -120,7 +120,8 @@ const AddStorage = () => {
         shelf_num: '',
         storage_num: '',
         quantity_in_storage: '',
-        quantity_in_salesfloor: '',
+        quantity_in_salesfloor: '0',
+        should_be: '1',
     });
     const [imageError, setImageError] = useState("");
 
@@ -136,6 +137,7 @@ const AddStorage = () => {
             if (response.data.success && Array.isArray(response.data.data)) {
                 const updatedProducts = response.data.data.map(product => ({
                     ...product,
+                    price: parseFloat(product.price),
                     sku: product.sku || null,
                     category_name: categories.find(cat => cat.id === product.category_id)?.category || "Uncategorized"
                 }));
@@ -244,7 +246,7 @@ const AddStorage = () => {
                 shelf_num: '',
                 storage_num: '',
                 quantity_in_storage: '',
-                quantity_in_salesfloor: '',
+                quantity_in_salesfloor: '0',
             });
             setImagePreview('');
         }
@@ -260,9 +262,18 @@ const AddStorage = () => {
         if (type === 'file') {
             const file = files[0];
             if (file) {
-                setImageError(file.size > 2097152 ? "File too large" : "");
-                setFormData(prev => ({ ...prev, image: file }));
-                setImagePreview(URL.createObjectURL(file));
+                const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+                let error = "";
+                if (file.size > 2097152) {
+                    error = "File too large (max 2MB)";
+                } else if (!allowedTypes.includes(file.type)) {
+                    error = "Invalid file type. Allowed: PNG, JPG, GIF, WebP";
+                }
+                setImageError(error);
+                if (!error) {
+                    setFormData(prev => ({ ...prev, image: file }));
+                    setImagePreview(URL.createObjectURL(file));
+                }
             }
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
@@ -272,6 +283,7 @@ const AddStorage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setSubmissionErrors({});
 
         if (!user?.store_id) {
             console.error("Error: Store ID is missing!");
@@ -311,34 +323,42 @@ const AddStorage = () => {
         formDataToSend.append("sku", formData.sku || "");
         formDataToSend.append("barcode", formData.barcode);
         if (categoryIdToUse) formDataToSend.append("category_id", categoryIdToUse);
-        if (formData.price.trim())               formDataToSend.append("price", formData.price);
-        if (formData.shelf_num.trim())           formDataToSend.append("shelf_num", formData.shelf_num);
-        if (formData.storage_num.trim())         formDataToSend.append("storage_num", formData.storage_num);
-        if (formData.quantity_in_storage.trim()) formDataToSend.append("quantity_in_storage", formData.quantity_in_storage);
-        if (formData.quantity_in_salesfloor.trim()) formDataToSend.append("quantity_in_salesfloor", formData.quantity_in_salesfloor);
-        if (formData.image)                      formDataToSend.append("image", formData.image);
+        const appendNumericField = (fieldName, value) => {
+            const num = parseFloat(value);
+            if (isNaN(num)) return; // Added missing parentheses
+
+            // Special handling for price
+            if (fieldName === "price") {
+                formDataToSend.append(fieldName, value);
+            } else {
+                formDataToSend.append(fieldName, num);
+            }
+        };
+
+        appendNumericField("price", formData.price);
+        appendNumericField("shelf_num", formData.shelf_num);
+        appendNumericField("storage_num", formData.storage_num);
+        appendNumericField("quantity_in_storage", formData.quantity_in_storage);
+        appendNumericField("quantity_in_salesfloor", formData.quantity_in_salesfloor);
+        appendNumericField("should_be", formData.should_be);
+
+        if (formData.image) formDataToSend.append("image", formData.image);
 
         try {
             let response;
 
             if (editingProductId) {
-                // Tell Laravel to treat this POST as a PUT
                 formDataToSend.append("_method", "PUT");
-
                 response = await axios.post(
                     `https://stocksmart.xyz/api/storage/${editingProductId}`,
                     formDataToSend,
                     {
                         headers: {
                             "Authorization": `Bearer ${authToken}`,
-                            // Let Axios set the multipart boundary for you:
-                            // Axios will automatically add Content-Type: multipart/form-data; boundary=...
                             "X-HTTP-Method-Override": "PUT"
                         }
                     }
                 );
-                console.log("Product updated:", response.data);
-
             } else {
                 // Normal "create" path
                 response = await axios.post(
@@ -351,14 +371,19 @@ const AddStorage = () => {
                         }
                     }
                 );
-                console.log("Product added:", response.data);
             }
 
             // Update local state & UI
             setProducts(prev =>
                 editingProductId
-                    ? prev.map(item => item.id === editingProductId ? response.data.storageItem : item)
-                    : [...prev, response.data.storageItem]
+                    ? prev.map(item => item.id === editingProductId ? {
+                        ...response.data.storageItem,
+                        price: Number(response.data.storageItem.price)
+                    } : item)
+                    : [...prev, {
+                        ...response.data.storageItem,
+                        price: Number(response.data.storageItem.price)
+                    }]
             );
             setShowOverlay(false);
             setEditingProductId(null);
@@ -373,11 +398,17 @@ const AddStorage = () => {
                 shelf_num: '',
                 storage_num: '',
                 quantity_in_storage: '',
-                quantity_in_salesfloor: '',
+                quantity_in_salesfloor: '0',
             });
             await fetchProducts();
-
         } catch (error) {
+            if (error.response?.status === 422) {
+                setSubmissionErrors(error.response.data.errors || {});
+            } else {
+                setSubmissionErrors({
+                    general: [error.response?.data?.message || "An unexpected error occurred"]
+                });
+            }
             console.error("Error adding/updating product:", error.response?.data || error);
         } finally {
             setIsSubmitting(false);
@@ -424,7 +455,8 @@ const AddStorage = () => {
             shelf_num:      product.shelf_num?.toString() || '',
             storage_num:    product.storage_num?.toString() || '',
             quantity_in_storage:    product.quantity_in_storage?.toString() || '',
-            quantity_in_salesfloor: product.quantity_in_salesfloor?.toString() || '',
+            quantity_in_salesfloor: product.quantity_in_salesfloor?.toString() || '0',
+            should_be: product.should_be?.toString() || '1',
         });
 
         // show existing image in preview
@@ -651,7 +683,7 @@ const AddStorage = () => {
             <div className="fixed inset-0 bg-black bg-opacity-50 overflow-hidden flex items-center justify-center z-50">
                 <div className="bg-white w-1/3 p-3 rounded-lg max-h-[80vh] overflow-y-auto min-w-[300px]">
                     <div className="flex flex-row mb-4 justify-between items-center">
-                        <h2 className="text-xl font-bold">Assign categories</h2>
+                        <h2 className="text-xl font-bold">{addStorageTranslations[language].assigncategories}</h2>
                         <FaXmark className="w-5 text-[#4E82E4] cursor-pointer" onClick={closeAllCategoryOverlays}/>
                     </div>
                     {/* Category Input */}
@@ -673,7 +705,7 @@ const AddStorage = () => {
                         </div>
                         {/* OR Divider */}
                         <div className="flex items-center justify-center">
-                            <span className="text-[#4E82E4]">OR</span>
+                            <span className="text-[#4E82E4]">{addStorageTranslations[language].or}</span>
                         </div>
                         {/* New Category Input */}
                         <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
@@ -706,7 +738,7 @@ const AddStorage = () => {
                             id="assign-uncategorized-checkbox"
                         />
                         <label htmlFor="assign-uncategorized-checkbox" className="ml-2 font-semibold">
-                            Assign to all uncategorized ({uncategorizedProducts.length})
+                            {addStorageTranslations[language].adduncategorized} ({uncategorizedProducts.length})
                         </label>
                     </div>
                     {!assignToUncategorized && (
@@ -725,7 +757,7 @@ const AddStorage = () => {
                                             {p.product_name}
                                             {p.category_id && (
                                                 <span className="text-gray-500 ml-2 text-sm">
-                                                    (Currently: {categories.find(c => c.id === p.category_id)?.category || 'Uncategorized'})
+                                                    ({addStorageTranslations[language].currently} {categories.find(c => c.id === p.category_id)?.category || 'Uncategorized'})
                                                 </span>
                                             )}
                                         </label>
@@ -742,7 +774,7 @@ const AddStorage = () => {
                             onClick={handleAssign}
                             disabled={!canAssign}
                         >
-                            Assign
+                            {addStorageTranslations[language].assign}
                         </button>
                     </div>
                 </div>
@@ -753,12 +785,12 @@ const AddStorage = () => {
         <div className="ml-[16.67%] max-lg:ml-[200px] max-sm:ml-0 flex min-h-screen flex-col">
             <Sidebar storeName={store.storename} employeeName={user.name}/>
             <div
-                className={`${storageDone ? 'mt-0 py-0 pb-10' : 'mt-7'} transition-all duration-300 w-full bg-[#f8fafe] p-10 max-xl:p-5 min-h-screen max-sm:w-screen flex flex-col justify-start items-center max-sm:ml-0 max-sm:p-2`}>
+                className={`${storageDone ? 'mt-0 pt-0 pb-10 ' : 'mt-24 '}transition-all duration-300 w-full bg-[#f8fafe] p-10 max-xl:p-5 min-h-screen max-sm:w-screen flex flex-col justify-start items-center max-sm:ml-0 max-sm:p-2`}>
                 {/* Top fixed buttons */}
-                <div className="flex w-full justify-between items-center py-4 max-md:w-5/6 ">
-                    <div className={`flex ${storageDone ? 'w-full max-sm:justify-end' : ''}`}>
+                <div className="flex w-full justify-between items-center py-2 ">
+                    <div className={`flex ${storageDone ? 'w-full max-sm:justify-end' : 'w-2/5'}`}>
                         <button
-                            className={`${storageDone ? 'w-full hover:scale-100 max-sm:w-5/6 ' : ''}bg-[#4E82E4] py-2 px-9 text-white font-semibold rounded-lg hover:bg-[#6a9aec] transition-all duration-300 hover:scale-105`}
+                            className={`${storageDone ? 'w-full hover:scale-100 max-sm:w-5/6 ' : ''}bg-[#4E82E4] w-full max-md:py-4 max-[510px]:text-sm max-[460px]:text-xs max-sm:px-5 max-[330px]:px-2 py-2 px-9 text-white font-semibold rounded-lg hover:bg-[#6a9aec] transition-all duration-300 hover:scale-110`}
                             onClick={toggleOverlay}
                         >
                             + {addStorageTranslations[language].addItem}
@@ -766,7 +798,7 @@ const AddStorage = () => {
                     </div>
                     {!storageDone && (
                         <button
-                            className="bg-[#4E82E4] py-2 px-9 text-white font-semibold rounded-lg hover:bg-[#6a9aec] transition-all hover:scale-110 max-sm:block"
+                            className="bg-[#4E82E4] w-2/5 py-2 px-9 text-white font-semibold max-md:py-4 max-[510px]:text-sm max-[460px]:text-xs max-sm:px-5 max-[330px]:px-2 rounded-lg hover:bg-[#6a9aec] transition-all hover:scale-110 max-sm:block"
                             onClick={handleDoneClick}
                         >
                             {addStorageTranslations[language].doneSkip}
@@ -903,11 +935,15 @@ const AddStorage = () => {
                                             {addStorageTranslations[language].categoryLabel} : {product.category?.category || "None"}
                                         </p>
                                         <p className={`flex items-center transition-all responsive-text ${highlightedField === "price" ? "text-[#4E82E4] font-extrabold" : "text-gray-500"}`}>
-                                            <FaDollarSign className="mr-2"/>
-                                            {product.price}
+                                            <IoMdPricetag className="mr-2"/>
+                                            {addStorageTranslations[language].price} : {Number(product.price).toFixed(2)}
                                         </p>
                                         <p className="flex items-center text-gray-500 responsive-text">
-                                            <FaBox className="mr-2"/>
+                                            <CgDisplayFullwidth className="mr-2"/>
+                                            {addStorageTranslations[language].storagenumberlabel} : {product.storage_num || addStorageTranslations[language].notAvailable}
+                                        </p>
+                                        <p className="flex items-center text-gray-500 responsive-text">
+                                            <CgDisplaySpacing className="mr-2"/>
                                             {addStorageTranslations[language].shelfLabel} : {product.shelf_num || addStorageTranslations[language].notAvailable}
                                         </p>
                                         <p className={`flex items-center transition-all responsive-text ${highlightedField === "storage" ? "text-[#4E82E4] font-extrabold" : "text-gray-500"}`}>
@@ -917,6 +953,10 @@ const AddStorage = () => {
                                         <p className={`flex items-center transition-all responsive-text ${highlightedField === "salesfloor" ? "text-[#4E82E4] font-extrabold" : "text-gray-500"}`}>
                                             <FaStore className="mr-2"/>
                                             {addStorageTranslations[language].salesfloorLabel} : {product.quantity_in_salesfloor}
+                                        </p>
+                                        <p className={`flex items-center transition-all responsive-text underline text-gray-500`}>
+                                            <CgInbox className="mr-2"/>
+                                            {addStorageTranslations[language].shouldbe} : {product.should_be}
                                         </p>
                                         {/* Action Buttons */}
                                         <div className="flex justify-between w-full mt-4">
@@ -935,10 +975,11 @@ const AddStorage = () => {
                                         </div>
                                     </div>
                                     {showDeleteCategoryOverlay && (
-                                        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
+                                        <div
+                                            className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
                                             <div className="bg-white p-6 rounded-lg shadow-lg text-center">
                                                 <h2 className="text-lg font-bold mb-4">
-                                                    Are you sure you want to delete the category "{categoryToDelete?.category}"?
+                                                Are you sure you want to delete the category "{categoryToDelete?.category}"?
                                                 </h2>
                                                 <p className="text-red-500 font-semibold">
                                                     Used by {usageCounts[categoryToDelete?.id]} products.
@@ -965,7 +1006,7 @@ const AddStorage = () => {
                                         <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
                                             <div className="bg-white p-6 rounded-lg shadow-lg text-center">
                                                 <h2 className="text-lg font-bold mb-4">
-                                                    Are you sure you want to delete "{deleteProduct?.product_name}"?
+                                                    {addStorageTranslations[language].areyousure}"{deleteProduct?.product_name}"?
                                                 </h2>
                                                 <div className="flex justify-center gap-4 mt-4">
                                                     <button
@@ -1011,12 +1052,18 @@ const AddStorage = () => {
                             <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
                                 <FaInfo className="text-[#4E82E4] mr-2"/>
                                 <input
+                                    required
                                     className="w-full"
                                     type="text"
                                     value={formData.product_name}
                                     onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
                                     placeholder={addStorageTranslations[language].enterProductName}
                                 />
+                                {submissionErrors.product_name && (
+                                    <span className="text-red-500 text-sm">
+                                        {submissionErrors.product_name[0]}
+                                    </span>
+                                )}
                             </div>
                             <div className="flex flex-col">
                                 <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
@@ -1037,6 +1084,7 @@ const AddStorage = () => {
                                 <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
                                     <FaBarcode className="text-[#4E82E4] mr-2"/>
                                     <input
+                                        required
                                         className="w-full"
                                         type="text"
                                         value={formData.barcode}
@@ -1049,6 +1097,11 @@ const AddStorage = () => {
                                         }}
                                         placeholder={addStorageTranslations[language].enterBarcode}
                                     />
+                                    {submissionErrors.barcode && (
+                                        <span className="text-red-500 text-sm">
+                                            {submissionErrors.barcode[0]}
+                                        </span>
+                                    )}
                                 </div>
                                 <small className="text-gray-400 text-sm mt-1">{addStorageTranslations[language].max13Digits}</small>
                             </div>
@@ -1089,7 +1142,7 @@ const AddStorage = () => {
                             <div className="flex space-x-4">
                                 <div className="flex flex-col w-1/3">
                                     <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
-                                        <FaDollarSign className="text-[#4E82E4] mr-2"/>
+                                        <IoMdPricetag className="text-[#4E82E4] mr-2"/>
                                         <input
                                             type="text"
                                             value={formData.price}
@@ -1137,18 +1190,34 @@ const AddStorage = () => {
                                 <small className="text-gray-400 text-sm mt-1">max. 3 symbols</small>
                             </div>
                             <div className="flex flex-col">
-                                <div className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
+                                <div
+                                    className="flex items-center border border-gray-300 bg-white rounded w-full py-2 px-3">
                                     <FaStore className="text-[#4E82E4] mr-2"/>
-                                    <input type="text" className="w-full outline-none" placeholder={addStorageTranslations[language].amountOnSalesFloor}
-                                           maxLength="2" name="quantity_in_salesfloor"
-                                           value={formData.quantity_in_salesfloor}
-                                           onChange={handleChange}/>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        required
+                                        className="w-full outline-none"
+                                        placeholder={addStorageTranslations[language].inputshouldbe}
+                                        name="should_be"
+                                        value={formData.should_be}
+                                        onChange={(e) => {
+                                            const val = Math.max(1, parseInt(e.target.value) || 1);
+                                            setFormData({...formData, should_be: val.toString()});
+                                        }}
+                                    />
                                 </div>
-                                <small className="text-gray-400 text-sm mt-1">{addStorageTranslations[language].salesFloorHelp}</small>
+                                <small className="text-gray-400 text-sm mt-1">Minimum required on sales floor</small>
                             </div>
+                            {Object.keys(submissionErrors).length > 0 && (
+                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                                    {Object.entries(submissionErrors).map(([field, messages]) => (
+                                        <p key={field}>{messages[0]}</p>
+                                    ))}
+                                </div>
+                            )}
                             <button
                                 type="submit"
-                                disabled={isSubmitting || !formData.product_name || !formData.price}
                                 className={`relative flex justify-center items-center bg-[#4E82E4] hover:bg-[#2968DE] text-white font-semibold py-2 px-4 rounded w-full transition-all ${isSubmitting ? 'animate-pulse' : ''}`}
                             >
                                 {isSubmitting ? (
@@ -1165,7 +1234,7 @@ const AddStorage = () => {
                 <div className="fixed inset-0 bg-black bg-opacity-50 overflow-hidden flex items-center justify-center z-20">
                     <div className="bg-white w-1/3 p-3 rounded-lg min-w-[300px] transition-all duration-300">
                         <div className="flex flex-row mb-4 justify-between items-center">
-                        <h2 className="text-xl font-bold">Delete categories</h2>
+                        <h2 className="text-xl font-bold">{addStorageTranslations[language].deletecategories}</h2>
                         <FaXmark className="w-5 text-[#4E82E4] cursor-pointer" onClick={closeAllCategoryOverlays}/>
                         </div>
                         <ul className="space-y-2 max-h-80 overflow-y-scroll">
@@ -1173,13 +1242,13 @@ const AddStorage = () => {
                                 <li key={cat.id} className="flex justify-between items-center">
                                     <div className="flex w-2/3">
                                     <span className="font-semibold w-1/3 max-md:w-1/2"> {cat.category}</span>
-                                    <span className="text-gray-400">Used by: {usageCounts[cat.id]}</span>
+                                    <span className="text-gray-400">{addStorageTranslations[language].usedby} {usageCounts[cat.id]}</span>
                                     </div>
                                     <button
                                         className="text-red-500 hover:underline"
                                         onClick={() => handleCategoryDelete(cat)}
                                     >
-                                        Delete
+                                        {addStorageTranslations[language].delete}
                                     </button>
                                 </li>
                             ))}
@@ -1188,7 +1257,7 @@ const AddStorage = () => {
                                 className="bg-blue-500 text-white w-full py-2 rounded mt-4 transition-all font-semibold duration-300 hover:bg-[#6a9aec]"
                                 onClick={openAssignOverlay}
                             >
-                                Assign Categories
+                                {addStorageTranslations[language].assigncategories}
                             </button>
                     </div>
                 </div>
